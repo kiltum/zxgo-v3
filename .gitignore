@@ -1,0 +1,15 @@
+/zxgo
+/zxgo-mcp
+/zxgo-worker
+/zxgo-macos
+/zxgo-linux
+/zxgo-windows.exe
+*.png
+/zxgo-test
+testdata/Games/
+/disktest
+/tapetest
+/mediatest
+/log.txt
+/*.prof
+/*.out
