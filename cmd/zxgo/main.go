@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/kiltum/zxgo-v3/internal/emulator"
+	"github.com/kiltum/zxgo-v3/internal/ui"
 	"github.com/kiltum/zxgo-v3/internal/ui/sdl"
 	"github.com/kiltum/zxgo-v3/pkg/cpu"
 	"github.com/kiltum/zxgo-v3/pkg/logger"
@@ -207,6 +208,7 @@ func main() {
 		if *fastTapeFlag {
 			fmt.Println("  Fast tape: playback runs unthrottled; sound is dropped until it stops")
 		}
+		fmt.Println("  Press CMD+S at any time to save the screen as a PNG")
 	}
 
 	// Phase 7: Load disk image if specified
@@ -577,6 +579,15 @@ func run(emu *emulator.Emulator) {
 		}
 
 		switch command {
+		case "screenshot":
+			// One file per press: the name carries a millisecond stamp.
+			path, err := ui.SavePNG(".", emu.ULA().GetScreen(), emu.ULA().Width(), emu.ULA().Height())
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Screenshot failed: %v\n", err)
+			} else {
+				fmt.Println("Screenshot: " + path)
+			}
+
 		case "tape-playpause":
 			pb := emu.TapePlayback()
 			if pb.IsPlaying() {

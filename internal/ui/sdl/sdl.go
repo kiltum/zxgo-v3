@@ -147,6 +147,15 @@ func (u *sdlUI) ProcessEvents(
 				}
 			}
 
+			// Cmd+S = save a screenshot of the current screen.
+			if sc == C.SDL_SCANCODE_S && down {
+				mods := C.SDL_GetModState()
+				if (mods & C.SDL_KMOD_GUI) != 0 {
+					onCommand("screenshot", true)
+					continue
+				}
+			}
+
 			// Cmd+F1 = print MARK to log (not a ZX key - emulator debug)
 			if sc == C.SDL_SCANCODE_F1 && down {
 				mods := C.SDL_GetModState()

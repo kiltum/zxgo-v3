@@ -4,7 +4,7 @@
 /zxgo-macos
 /zxgo-linux
 /zxgo-windows.exe
-*.png
+/*.png
 /zxgo-test
 testdata/Games/
 /disktest
