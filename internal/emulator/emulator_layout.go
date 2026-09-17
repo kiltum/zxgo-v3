@@ -2,7 +2,6 @@ package emulator
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"github.com/kiltum/zxgo-v3/pkg/bus"
@@ -102,8 +101,10 @@ func NewWithLayout(cfg model.Config, layout *model.ROMLayout, romsDir string, au
 	if cfg.HasGS {
 		gsCard = gs.New(cpuHz)
 		// Load the GS ROM: embedded, overridden by roms/gs105a.rom if present.
+		// The override may be packed (roms/gs105a.rom.zip), like every other
+		// image loader here.
 		gsROM := rom.Get("gs/gs105a.rom")
-		if data, err := os.ReadFile(filepath.Join(romsDir, "gs105a.rom")); err == nil {
+		if data, err := mem.ReadROMFile(filepath.Join(romsDir, "gs105a.rom")); err == nil {
 			gsROM = data
 		}
 		if err := gsCard.LoadROM(gsROM); err != nil {

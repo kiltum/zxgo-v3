@@ -61,7 +61,7 @@ func loadROMDescriptor(desc *model.ROMDescriptor, romsDir string) ([]byte, error
 			path = filepath.Join(romsDir, path)
 		}
 
-		fileData, err := readROMFile(path)
+		fileData, err := ReadROMFile(path)
 		if err == nil {
 			data = fileData
 		} else if !os.IsNotExist(err) {
@@ -95,10 +95,13 @@ func loadROMDescriptor(desc *model.ROMDescriptor, romsDir string) ([]byte, error
 	return data, nil
 }
 
-// readROMFile reads a ROM override from disk, unpacking a .zip when the file is
-// one. A missing ".zip" beside a missing name is still a missing file, so the
+// ReadROMFile reads a ROM override from disk, unpacking a .zip when the file is
+// one. A missing ".zip" beside a missing name is still a missing file, so a
 // caller's fall-through to the embedded ROM is unchanged.
-func readROMFile(path string) ([]byte, error) {
+//
+// Exported because the General Sound ROM override is loaded outside this
+// package and wants the same "packed or not" behaviour as a bank ROM.
+func ReadROMFile(path string) ([]byte, error) {
 	if strings.EqualFold(filepath.Ext(path), ".zip") {
 		return readZippedROM(path)
 	}

@@ -19,9 +19,9 @@ func registerEmulatorTools(s *server.MCPServer, h *workerHandle, log *slog.Logge
 		mcp.WithString("name", mcp.Description("Machine name."), mcp.Required()),
 		mcp.WithString("model", mcp.Description("Model: 48k, 128k, 2a3, pentagon (default 48k).")),
 		mcp.WithString("roms_dir", mcp.Description("Directory with ROM files (default 'roms').")),
-		mcp.WithString("disk", mcp.Description("Path to a disk image (.trd/.scl/.dsk).")),
-		mcp.WithString("tape", mcp.Description("Path to a tape image (.tap/.tzx); mounted, not started.")),
-		mcp.WithString("snapshot", mcp.Description("Path to a snapshot image (.sna/.z80).")),
+		mcp.WithString("disk", mcp.Description("Path to a disk image (.trd/.scl/.dsk), or a .zip holding one.")),
+		mcp.WithString("tape", mcp.Description("Path to a tape image (.tap/.tzx), or a .zip holding one; mounted, not started.")),
+		mcp.WithString("snapshot", mcp.Description("Path to a snapshot image (.sna/.z80), or a .zip holding one.")),
 	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		name, _ := req.RequireString("name")
 		return forward(h, "build_machine", map[string]any{
@@ -321,9 +321,9 @@ func registerEmulatorTools(s *server.MCPServer, h *workerHandle, log *slog.Logge
 	})
 
 	s.AddTool(mcp.NewTool("load_snapshot",
-		mcp.WithDescription("Load a .sna or .z80 snapshot file into a machine."),
+		mcp.WithDescription("Load a .sna or .z80 snapshot file into a machine. The path may be a .zip holding the snapshot."),
 		mcp.WithString("name", mcp.Description("Machine name."), mcp.Required()),
-		mcp.WithString("path", mcp.Description("Path to the snapshot file."), mcp.Required()),
+		mcp.WithString("path", mcp.Description("Path to the snapshot file, or a .zip holding it."), mcp.Required()),
 	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		name, _ := req.RequireString("name")
 		path, _ := req.RequireString("path")

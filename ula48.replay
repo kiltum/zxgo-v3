@@ -1,0 +1,105 @@
+{
+  "format": "zxgo-replay",
+  "version": 1,
+  "created": "2026-09-17T14:15:12.929424+03:00",
+  "model": "48k",
+  "model_name": "ZX Spectrum 48K",
+  "cpu_hz": 3500000,
+  "settings": {
+    "turbosound": false,
+    "turbosoundfm": false,
+    "gs": false,
+    "snow": false,
+    "no_fdc_timing": false,
+    "fast_tape": true
+  },
+  "media": {
+    "tape": "test/ula48.tap"
+  },
+  "events": [
+    {
+      "tick": 7058690,
+      "key": {
+        "row": 6,
+        "col": 3,
+        "down": true
+      }
+    },
+    {
+      "tick": 7373243,
+      "key": {
+        "row": 6,
+        "col": 3,
+        "down": false
+      }
+    },
+    {
+      "tick": 9015554,
+      "key": {
+        "row": 7,
+        "col": 1,
+        "down": true
+      }
+    },
+    {
+      "tick": 9749435,
+      "key": {
+        "row": 5,
+        "col": 0,
+        "down": true
+      }
+    },
+    {
+      "tick": 9993986,
+      "key": {
+        "row": 5,
+        "col": 0,
+        "down": false
+      }
+    },
+    {
+      "tick": 10378427,
+      "key": {
+        "row": 5,
+        "col": 0,
+        "down": true
+      }
+    },
+    {
+      "tick": 10727867,
+      "key": {
+        "row": 5,
+        "col": 0,
+        "down": false
+      }
+    },
+    {
+      "tick": 10867643,
+      "key": {
+        "row": 7,
+        "col": 1,
+        "down": false
+      }
+    },
+    {
+      "tick": 13313723,
+      "key": {
+        "row": 6,
+        "col": 0,
+        "down": true
+      }
+    },
+    {
+      "tick": 13628161,
+      "key": {
+        "row": 6,
+        "col": 0,
+        "down": false
+      }
+    },
+    {
+      "tick": 16633349,
+      "tape": "play"
+    }
+  ]
+}

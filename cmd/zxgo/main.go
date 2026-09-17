@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"os/signal"
+	"path/filepath"
 	"runtime"
 	"strconv"
+	"syscall"
 	"time"
 
 	"github.com/kiltum/zxgo-v3/internal/emulator"
@@ -16,6 +19,7 @@ import (
 	"github.com/kiltum/zxgo-v3/pkg/logger"
 	"github.com/kiltum/zxgo-v3/pkg/media"
 	"github.com/kiltum/zxgo-v3/pkg/model"
+	"github.com/kiltum/zxgo-v3/pkg/replay"
 	"github.com/kiltum/zxgo-v3/pkg/snap"
 	"github.com/kiltum/zxgo-v3/pkg/sound/sdl3"
 	"github.com/kiltum/zxgo-v3/pkg/ula"
@@ -40,12 +44,44 @@ func main() {
 	fastTapeFlag := flag.Bool("fast-tape", false, "load tapes at full host speed: the speed throttle is off while the tape plays")
 	gsFlag := flag.Bool("gs", false, "enable the General Sound card (requires roms/gs105a.rom)")
 	snowFlag := flag.Bool("snow", false, "enable the 48K snow artefact (ULA/CPU data-bus conflict; noisy)")
+	replayFlag := flag.String("replay", "", "path to a .replay file to play back; its machine and switches are used")
+	saveReplayFlag := flag.String("save-replay", "", "path to write a .replay recording of this session on exit")
 	flag.Parse()
 
-	cfg, ok := model.AllModels[*modelFlag]
+	// A replay is read before the machine is built: it carries the model and the
+	// switches the session ran with, so it has to be in hand before there is a
+	// config to fill in.
+	var rp *replay.File
+	if *replayFlag != "" {
+		loaded, err := loadReplay(*replayFlag)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to load replay: %v\n", err)
+			os.Exit(1)
+		}
+		rp = loaded
+	}
+
+	// The model is the one the replay names, unless one was asked for on the
+	// command line: this is the only place in the tree that needs to tell "flag
+	// given" from "flag holds its zero value", which is why it asks flag.Visit
+	// rather than testing the string. The switches below need no such test --
+	// they only ever turn something on, so the union of the file and the command
+	// line is what the user meant either way.
+	modelKey := *modelFlag
+	if rp != nil && !flagWasSet("model") {
+		modelKey = rp.Model
+	}
+	cfg, ok := model.AllModels[modelKey]
 	if !ok {
-		fmt.Fprintf(os.Stderr, "Unknown model: %s\n", *modelFlag)
+		fmt.Fprintf(os.Stderr, "Unknown model: %s\n", modelKey)
 		os.Exit(1)
+	}
+	if rp != nil && modelKey != rp.Model {
+		// The events were stamped against another model's clock; the player
+		// rescales them, and the user should know the replay is approximate by
+		// their own choice rather than by a defect.
+		fmt.Printf("zxgo-v3: replay was recorded on %s, playing on %s (timings scaled)\n",
+			rp.Model, modelKey)
 	}
 
 	// A/B test override for the /INT position (Pentagon timing debugging).
@@ -54,6 +90,20 @@ func main() {
 			fmt.Printf("zxgo-v3: overriding InterruptOffset %d -> %d\n", cfg.InterruptOffset, off)
 			cfg.InterruptOffset = off
 		}
+	}
+
+	var settings replay.Settings
+	if rp != nil {
+		settings = rp.Settings
+	}
+
+	// The replay's switches are applied first and the command line's after.
+	// Order does not matter and nothing conflicts: every one of these only ever
+	// turns something on, so the two can only add up, and a model's own defaults
+	// (the Pentagon's TurboSound) survive a settings section that says nothing.
+	fastTape := *fastTapeFlag
+	if rp != nil {
+		fastTape = applyRecordedSettings(&cfg, settings) || fastTape
 	}
 
 	// TurboSound: on by default for the Pentagon, opt-in elsewhere.
@@ -140,22 +190,42 @@ func main() {
 
 	// Fast tape load: run unthrottled while the tape plays, so LOAD completes
 	// in host time. Audio is dropped for the duration (see Emulator.pumpAudio).
-	emu.SetFastTape(*fastTapeFlag)
+	emu.SetFastTape(fastTape)
 
 	emu.Reset()
 
-	// Phase 6: Load snapshot file if specified. Both flags may name a .zip: the
-	// emulator unpacks it and picks the snapshot format by the name inside.
-	if *snaFlag != "" {
-		if err := loadSnapshot(emu, *snaFlag); err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to load SNA snapshot: %v\n", err)
-			os.Exit(1)
+	// The media comes from the command line when it was given there, and from
+	// the replay otherwise: a session that was recorded with a tape needs that
+	// tape back, or the keys that typed LOAD "" land on a machine with nothing
+	// to load. A recorded path that no longer resolves is reported and skipped
+	// rather than fatal -- a session recorded off a BASIC prompt needs no media
+	// at all, and refusing to start would help nobody.
+	snapPath := *snaFlag
+	if snapPath == "" {
+		snapPath = *z80Flag
+	}
+	tapePath, diskPath := *tapFlag, *diskFlag
+	if rp != nil {
+		var warn []string
+		if snapPath == "" {
+			snapPath = resolveMedia(rp.Media.Snapshot, *replayFlag, &warn)
+		}
+		if tapePath == "" {
+			tapePath = resolveMedia(rp.Media.Tape, *replayFlag, &warn)
+		}
+		if diskPath == "" {
+			diskPath = resolveMedia(rp.Media.Disk, *replayFlag, &warn)
+		}
+		for _, w := range warn {
+			fmt.Fprintf(os.Stderr, "zxgo-v3: replay media missing: %s\n", w)
 		}
 	}
 
-	if *z80Flag != "" {
-		if err := loadSnapshot(emu, *z80Flag); err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to load Z80 snapshot: %v\n", err)
+	// Phase 6: Load snapshot file if specified. The path may be a .zip: the
+	// emulator unpacks it and picks the snapshot format by the name inside.
+	if snapPath != "" {
+		if err := loadSnapshot(emu, snapPath); err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to load snapshot: %v\n", err)
 			os.Exit(1)
 		}
 	}
@@ -172,8 +242,8 @@ func main() {
 	// Phase 5: Load TAP/TZX file if specified. The path may be a .zip holding
 	// one: media.LoadTapeFile unpacks it and detects the format by the name
 	// inside, so no caller here has to care.
-	if *tapFlag != "" {
-		tape, err := media.LoadTapeFile(*tapFlag)
+	if tapePath != "" {
+		tape, err := media.LoadTapeFile(tapePath)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to load tape file: %v\n", err)
 			os.Exit(1)
@@ -185,10 +255,10 @@ func main() {
 		}
 
 		fmt.Printf("  Loaded %s: %s (%d blocks, %d pulses)\n",
-			tape.Format, *tapFlag, len(tape.Blocks), len(tape.Pulses))
+			tape.Format, tapePath, len(tape.Blocks), len(tape.Pulses))
 		// An archive can hold several images (a 48k and a 128k tape, say); say
 		// which one was taken, since the pick is not otherwise visible.
-		if tape.FileName != *tapFlag {
+		if tape.FileName != tapePath {
 			fmt.Printf("  Archive entry: %s\n", tape.FileName)
 		}
 
@@ -197,20 +267,20 @@ func main() {
 		fmt.Println("    1. Type LOAD \"\" and press ENTER")
 		fmt.Println("    2. Press CMD+P to start tape playback")
 		fmt.Println("    3. Press CMD+P again to pause/stop tape")
-		if *fastTapeFlag {
+		if fastTape {
 			fmt.Println("  Fast tape: playback runs unthrottled; sound is dropped until it stops")
 		}
 		fmt.Println("  Press CMD+S at any time to save the screen as a PNG")
 	}
 
 	// Phase 7: Load disk image if specified (.trd/.scl/.dsk, optionally zipped).
-	if *diskFlag != "" {
-		disk, err := media.LoadDiskFile(*diskFlag)
+	if diskPath != "" {
+		disk, err := media.LoadDiskFile(diskPath)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to load disk image: %v\n", err)
 			os.Exit(1)
 		}
-		fmt.Printf("  Loaded %s disk: %s\n", disk.Type, *diskFlag)
+		fmt.Printf("  Loaded %s disk: %s\n", disk.Type, diskPath)
 
 		// Mount disk to Beta Disk controller
 		if err := emu.LoadDisk(disk); err != nil {
@@ -229,7 +299,167 @@ func main() {
 		fmt.Println("  Disk mounted and ready for TR-DOS operations")
 	}
 
+	// Recording and playback attach last, once the machine is in the state the
+	// user will see: events are stamped from tick 0, which is the first
+	// instruction after this point, and a replay is applied from that same
+	// origin. Both may be attached at once -- playback goes through the same
+	// input methods as a key press, so a replay records itself.
+	if *saveReplayFlag != "" {
+		rec := replay.NewRecorder()
+		emu.SetRecorder(rec)
+		// Save on exit, and like -save-sna a failure to write is reported but
+		// does not stop the emulator from closing.
+		defer func() {
+			if err := saveReplay(emu, rec, *saveReplayFlag, modelKey,
+				replay.Media{Snapshot: snapPath, Tape: tapePath, Disk: diskPath},
+				fastTape); err != nil {
+				fmt.Fprintf(os.Stderr, "Failed to save replay: %v\n", err)
+			}
+		}()
+		fmt.Printf("  Recording to %s\n", *saveReplayFlag)
+	}
+
+	if rp != nil {
+		player := replay.NewPlayer(rp.Events, rp.CPUHz, emu.CPUHz())
+		emu.SetPlayer(player)
+		keys, tape := rp.Count()
+		fmt.Printf("  Replay: %s (%d keys, %d tape actions, recorded on %s)\n",
+			*replayFlag, keys, tape, rp.Model)
+	}
+
 	run(emu)
+}
+
+// applyRecordedSettings turns on every switch a session ran with, and reports
+// whether it ran with fast tape.
+//
+// Fast tape is returned rather than applied because it is emulator state, not
+// part of the machine config -- and that is exactly how it came to be recorded,
+// printed and never used: a settings field nobody reads looks the same as one
+// that works. Every field here is a switch that only turns something on, so a
+// replay can add to a machine but never take away from it.
+func applyRecordedSettings(cfg *model.Config, s replay.Settings) (fastTape bool) {
+	if s.TurboSound {
+		cfg.HasTurboSound = true
+	}
+	if s.TurboSoundFM {
+		cfg.HasTurboSoundFM = true
+	}
+	if s.NoFDCTiming {
+		cfg.NoFDCTiming = true
+	}
+	if s.GeneralSound {
+		cfg.HasGS = true
+	}
+	if s.Snow {
+		cfg.HasSnowEffect = true
+	}
+	return s.FastTape
+}
+
+// toggleTapePlayback starts or pauses the tape and reports the new state, or ok
+// false when no tape is mounted.
+//
+// It goes through the emulator's transport methods rather than through the
+// Playback object it wraps. That is not a style preference: recording hangs off
+// the emulator's methods, so reaching past them to Playback.Pause() makes Cmd+P
+// invisible to a recording -- which is exactly what it did, leaving replay files
+// with the media named and no tape event to start it.
+func toggleTapePlayback(emu *emulator.Emulator) (playing bool, ok bool) {
+	if emu.TapePlayback() == nil {
+		return false, false
+	}
+	if emu.TapePlayback().IsPlaying() {
+		emu.StopTapePlayback()
+		return false, true
+	}
+	emu.StartTapePlayback()
+	return true, true
+}
+
+// flagWasSet reports whether a flag was named on the command line, as opposed to
+// holding its default. Nothing else in the tree needs this: every other switch
+// has a zero value that means "not asked for", but a replay file can say yes
+// where the default says no, and "the user asked for 128k" has to be
+// distinguishable from "the user did not mention the model".
+func flagWasSet(name string) bool {
+	set := false
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == name {
+			set = true
+		}
+	})
+	return set
+}
+
+// loadReplay reads a .replay file.
+func loadReplay(path string) (*replay.File, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	return replay.Load(f)
+}
+
+// resolveMedia finds a path a replay recorded: as it was recorded, then beside
+// the .replay file itself, since a session handed to someone else usually
+// arrives with its tape in the same folder. A path that resolves in neither
+// place is appended to missing and reported by the caller.
+func resolveMedia(recorded, replayPath string, missing *[]string) string {
+	if recorded == "" {
+		return ""
+	}
+	if _, err := os.Stat(recorded); err == nil {
+		return recorded
+	}
+	beside := filepath.Join(filepath.Dir(replayPath), filepath.Base(recorded))
+	if _, err := os.Stat(beside); err == nil {
+		return beside
+	}
+	*missing = append(*missing, recorded)
+	return ""
+}
+
+// saveReplay writes the recorded session. The machine description comes from the
+// emulator itself, so the file cannot disagree with what actually ran: the model
+// key is the one that was looked up, and the switches are read out of the
+// configured machine rather than out of the flags, which is what makes a
+// Pentagon's always-on TurboSound reproduce on a model where it is not the
+// default.
+func saveReplay(emu *emulator.Emulator, rec *replay.Recorder, path, modelKey string,
+	media replay.Media, fastTape bool) error {
+
+	cfg := emu.ModelConfig()
+
+	f := replay.NewFile()
+	f.Model = modelKey
+	f.ModelName = cfg.Name
+	f.CPUHz = emu.CPUHz()
+	f.Settings = replay.Settings{
+		TurboSound:   cfg.HasTurboSound,
+		TurboSoundFM: cfg.HasTurboSoundFM,
+		GeneralSound: cfg.HasGS,
+		Snow:         cfg.HasSnowEffect,
+		NoFDCTiming:  cfg.NoFDCTiming,
+		FastTape:     fastTape,
+	}
+	f.Media = media
+	f.Events = rec.Events()
+
+	out, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+	if err := replay.Save(out, f); err != nil {
+		return err
+	}
+
+	keys, tape := f.Count()
+	fmt.Printf("  Saved replay: %s (%d keys, %d tape actions, %s)\n",
+		path, keys, tape, time.Duration(f.Duration()*int64(time.Second)/int64(emu.CPUHz())))
+	return nil
 }
 
 // loadSnapshot loads a snapshot file (.sna or .z80, optionally packed in a .zip)
@@ -327,13 +557,12 @@ func run(emu *emulator.Emulator) {
 			}
 
 		case "tape-playpause":
-			pb := emu.TapePlayback()
-			if pb.IsPlaying() {
-				pb.Pause()
-				fmt.Println("Tape paused (Cmd+P)")
-			} else {
-				pb.Play()
-				fmt.Println("Tape playing (Cmd+P)")
+			if playing, ok := toggleTapePlayback(emu); ok {
+				if playing {
+					fmt.Println("Tape playing (Cmd+P)")
+				} else {
+					fmt.Println("Tape paused (Cmd+P)")
+				}
 			}
 		}
 	}
@@ -347,6 +576,14 @@ func run(emu *emulator.Emulator) {
 	// visibly alive at a negligible cost.
 	var lastFastRender time.Time
 
+	// A recording is long and hard to reproduce, so an interrupt has to take the
+	// same exit as closing the window: the loop returns, the deferred saves run,
+	// and teardown stays in its documented order. Without this, Ctrl+C would kill
+	// the process with the replay unwritten.
+	interrupted := make(chan os.Signal, 1)
+	signal.Notify(interrupted, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(interrupted)
+
 	for {
 		// Check if tape just finished and notify user
 		if emu.TapePlayback() != nil {
@@ -358,6 +595,13 @@ func run(emu *emulator.Emulator) {
 			if !emu.TapePlayback().Ended() && tapeEndNotified {
 				tapeEndNotified = false
 			}
+		}
+
+		select {
+		case <-interrupted:
+			fmt.Println("Interrupted - saving")
+			return
+		default:
 		}
 
 		if !gui.ProcessEvents(onKey, onCommand) {

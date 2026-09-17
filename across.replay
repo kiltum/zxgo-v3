@@ -1,0 +1,421 @@
+{
+  "format": "zxgo-replay",
+  "version": 1,
+  "created": "2026-09-17T14:30:59.353841+03:00",
+  "model": "pentagon",
+  "model_name": "Pentagon 128",
+  "cpu_hz": 3584000,
+  "settings": {
+    "turbosound": true,
+    "turbosoundfm": false,
+    "gs": false,
+    "snow": false,
+    "no_fdc_timing": true,
+    "fast_tape": false
+  },
+  "media": {
+    "disk": "test/across.trd"
+  },
+  "events": [
+    {
+      "tick": 11898883,
+      "key": {
+        "row": 0,
+        "col": 0,
+        "down": true
+      }
+    },
+    {
+      "tick": 12866565,
+      "key": {
+        "row": 4,
+        "col": 4,
+        "down": true
+      }
+    },
+    {
+      "tick": 13224976,
+      "key": {
+        "row": 4,
+        "col": 4,
+        "down": false
+      }
+    },
+    {
+      "tick": 13977604,
+      "key": {
+        "row": 4,
+        "col": 4,
+        "down": true
+      }
+    },
+    {
+      "tick": 14192646,
+      "key": {
+        "row": 4,
+        "col": 4,
+        "down": false
+      }
+    },
+    {
+      "tick": 14586893,
+      "key": {
+        "row": 4,
+        "col": 4,
+        "down": true
+      }
+    },
+    {
+      "tick": 14873606,
+      "key": {
+        "row": 4,
+        "col": 4,
+        "down": false
+      }
+    },
+    {
+      "tick": 15447051,
+      "key": {
+        "row": 4,
+        "col": 4,
+        "down": true
+      }
+    },
+    {
+      "tick": 15554560,
+      "key": {
+        "row": 4,
+        "col": 4,
+        "down": false
+      }
+    },
+    {
+      "tick": 16378890,
+      "key": {
+        "row": 0,
+        "col": 0,
+        "down": false
+      }
+    },
+    {
+      "tick": 17597454,
+      "key": {
+        "row": 6,
+        "col": 0,
+        "down": true
+      }
+    },
+    {
+      "tick": 17884177,
+      "key": {
+        "row": 6,
+        "col": 0,
+        "down": false
+      }
+    },
+    {
+      "tick": 22220804,
+      "key": {
+        "row": 0,
+        "col": 0,
+        "down": true
+      }
+    },
+    {
+      "tick": 22364178,
+      "key": {
+        "row": 0,
+        "col": 0,
+        "down": true
+      }
+    },
+    {
+      "tick": 22364178,
+      "key": {
+        "row": 7,
+        "col": 1,
+        "down": true
+      }
+    },
+    {
+      "tick": 22794256,
+      "key": {
+        "row": 0,
+        "col": 0,
+        "down": true
+      }
+    },
+    {
+      "tick": 22794256,
+      "key": {
+        "row": 7,
+        "col": 1,
+        "down": false
+      }
+    },
+    {
+      "tick": 22937600,
+      "key": {
+        "row": 0,
+        "col": 0,
+        "down": false
+      }
+    },
+    {
+      "tick": 23296003,
+      "key": {
+        "row": 7,
+        "col": 1,
+        "down": true
+      }
+    },
+    {
+      "tick": 24550414,
+      "key": {
+        "row": 4,
+        "col": 1,
+        "down": true
+      }
+    },
+    {
+      "tick": 25016328,
+      "key": {
+        "row": 7,
+        "col": 1,
+        "down": false
+      }
+    },
+    {
+      "tick": 25016328,
+      "key": {
+        "row": 4,
+        "col": 1,
+        "down": false
+      }
+    },
+    {
+      "tick": 26019840,
+      "key": {
+        "row": 6,
+        "col": 0,
+        "down": true
+      }
+    },
+    {
+      "tick": 26449923,
+      "key": {
+        "row": 6,
+        "col": 0,
+        "down": false
+      }
+    },
+    {
+      "tick": 30356490,
+      "key": {
+        "row": 2,
+        "col": 3,
+        "down": true
+      }
+    },
+    {
+      "tick": 30607367,
+      "key": {
+        "row": 2,
+        "col": 3,
+        "down": false
+      }
+    },
+    {
+      "tick": 32291847,
+      "key": {
+        "row": 7,
+        "col": 1,
+        "down": true
+      }
+    },
+    {
+      "tick": 33044481,
+      "key": {
+        "row": 5,
+        "col": 0,
+        "down": true
+      }
+    },
+    {
+      "tick": 33438725,
+      "key": {
+        "row": 7,
+        "col": 1,
+        "down": false
+      }
+    },
+    {
+      "tick": 33474569,
+      "key": {
+        "row": 5,
+        "col": 0,
+        "down": false
+      }
+    },
+    {
+      "tick": 35194887,
+      "key": {
+        "row": 0,
+        "col": 0,
+        "down": true
+      }
+    },
+    {
+      "tick": 35589130,
+      "key": {
+        "row": 1,
+        "col": 0,
+        "down": true
+      }
+    },
+    {
+      "tick": 35911690,
+      "key": {
+        "row": 1,
+        "col": 0,
+        "down": false
+      }
+    },
+    {
+      "tick": 36879391,
+      "key": {
+        "row": 0,
+        "col": 3,
+        "down": true
+      }
+    },
+    {
+      "tick": 37130249,
+      "key": {
+        "row": 0,
+        "col": 3,
+        "down": false
+      }
+    },
+    {
+      "tick": 37775365,
+      "key": {
+        "row": 2,
+        "col": 3,
+        "down": true
+      }
+    },
+    {
+      "tick": 38026246,
+      "key": {
+        "row": 2,
+        "col": 3,
+        "down": false
+      }
+    },
+    {
+      "tick": 38599694,
+      "key": {
+        "row": 5,
+        "col": 1,
+        "down": true
+      }
+    },
+    {
+      "tick": 38850564,
+      "key": {
+        "row": 5,
+        "col": 1,
+        "down": false
+      }
+    },
+    {
+      "tick": 39495685,
+      "key": {
+        "row": 1,
+        "col": 1,
+        "down": true
+      }
+    },
+    {
+      "tick": 39854080,
+      "key": {
+        "row": 1,
+        "col": 1,
+        "down": false
+      }
+    },
+    {
+      "tick": 40606725,
+      "key": {
+        "row": 1,
+        "col": 1,
+        "down": true
+      }
+    },
+    {
+      "tick": 41000962,
+      "key": {
+        "row": 1,
+        "col": 1,
+        "down": false
+      }
+    },
+    {
+      "tick": 41431043,
+      "key": {
+        "row": 0,
+        "col": 0,
+        "down": false
+      }
+    },
+    {
+      "tick": 42147844,
+      "key": {
+        "row": 7,
+        "col": 1,
+        "down": true
+      }
+    },
+    {
+      "tick": 42757128,
+      "key": {
+        "row": 5,
+        "col": 0,
+        "down": true
+      }
+    },
+    {
+      "tick": 42936320,
+      "key": {
+        "row": 7,
+        "col": 1,
+        "down": false
+      }
+    },
+    {
+      "tick": 43187217,
+      "key": {
+        "row": 5,
+        "col": 0,
+        "down": false
+      }
+    },
+    {
+      "tick": 47846408,
+      "key": {
+        "row": 6,
+        "col": 0,
+        "down": true
+      }
+    },
+    {
+      "tick": 48204815,
+      "key": {
+        "row": 6,
+        "col": 0,
+        "down": false
+      }
+    }
+  ]
+}

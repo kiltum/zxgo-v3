@@ -15,6 +15,7 @@ import (
 	"github.com/kiltum/zxgo-v3/pkg/media"
 	"github.com/kiltum/zxgo-v3/pkg/mem"
 	"github.com/kiltum/zxgo-v3/pkg/model"
+	"github.com/kiltum/zxgo-v3/pkg/replay"
 	"github.com/kiltum/zxgo-v3/pkg/sound"
 	"github.com/kiltum/zxgo-v3/pkg/ula"
 )
@@ -64,6 +65,12 @@ type Emulator struct {
 
 	// trace records a per-instruction delta trace when enabled (Phase 8).
 	trace *Trace
+
+	// Input recording and playback (replay.go). The recorder hangs off the
+	// emulator's own input API so every source is captured, not just the GUI's
+	// keyboard; the player injects at instruction boundaries in step().
+	recorder *replay.Recorder
+	player   *replay.Player
 }
 
 // CPU returns the Z80 for debugger access.
@@ -158,6 +165,7 @@ func (e *Emulator) fastTapeActive() bool {
 // StartTapePlayback starts tape playback active.
 func (e *Emulator) StartTapePlayback() {
 	if e.tape != nil {
+		e.recordTape(replay.TapePlay)
 		e.tape.Play()
 	}
 }
@@ -165,11 +173,15 @@ func (e *Emulator) StartTapePlayback() {
 // StopTapePlayback pauses tape playback.
 func (e *Emulator) StopTapePlayback() {
 	if e.tape != nil {
+		e.recordTape(replay.TapePause)
 		e.tape.Pause()
 	}
 }
 
-// ResetTapePlayback rewinds tape to beginning.
+// ResetTapePlayback rewinds tape to beginning. A rewind is deliberately not a
+// recorded event: the player has no "rewind" to dispatch, and a session that
+// rewinds is better served by the recording ending there than by a tape the
+// replay cannot put back.
 func (e *Emulator) ResetTapePlayback() {
 	if e.tape != nil {
 		e.tape.Reset()
@@ -177,10 +189,25 @@ func (e *Emulator) ResetTapePlayback() {
 }
 
 // PressKey presses a key in the ZX Spectrum keyboard matrix (row 0-7, col 0-4).
-func (e *Emulator) PressKey(row, col int) { e.ula.SetKeyDown(row, col) }
+//
+// The tick stamped here is the same tick playback injects at, so a recorded
+// press lands exactly where it was made. Recording hangs off this method rather
+// than off the SDL event loop so that every source is captured -- the GUI, the
+// MCP worker's press_key, anything else that drives the machine.
+func (e *Emulator) PressKey(row, col int) {
+	if e.recorder != nil {
+		e.recorder.Key(e.totalTicks, row, col, true)
+	}
+	e.ula.SetKeyDown(row, col)
+}
 
 // ReleaseKey releases a key in the ZX Spectrum keyboard matrix.
-func (e *Emulator) ReleaseKey(row, col int) { e.ula.SetKeyUp(row, col) }
+func (e *Emulator) ReleaseKey(row, col int) {
+	if e.recorder != nil {
+		e.recorder.Key(e.totalTicks, row, col, false)
+	}
+	e.ula.SetKeyUp(row, col)
+}
 
 // LoadROM loads a ROM bank.
 func (e *Emulator) LoadROM(bank int, data []byte) error {
@@ -241,6 +268,11 @@ func (e *Emulator) Reset() {
 // timestamped via SetTick before each instruction and applied as the
 // generator reaches them.
 func (e *Emulator) step() (int, bool) {
+	// Recorded input is settled first: an event due at this tick is a press that
+	// arrived between the previous instruction and this one, so it must be in
+	// the keyboard matrix before this instruction can read it.
+	e.applyReplay()
+
 	e.bus.UpdateFrameClock(e.ula.Clock())
 	// The absolute tick of this instruction's start: per-machine-cycle timing
 	// (contention positions and audio event stamps) is measured from here.

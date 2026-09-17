@@ -1,0 +1,41 @@
+{
+  "format": "zxgo-replay",
+  "version": 1,
+  "created": "2026-09-17T14:23:06.143998+03:00",
+  "model": "128k",
+  "model_name": "ZX Spectrum 128K",
+  "cpu_hz": 3546900,
+  "settings": {
+    "turbosound": false,
+    "turbosoundfm": false,
+    "gs": false,
+    "snow": false,
+    "no_fdc_timing": false,
+    "fast_tape": true
+  },
+  "media": {
+    "tape": "test/ula128.tap"
+  },
+  "events": [
+    {
+      "tick": 12905259,
+      "key": {
+        "row": 6,
+        "col": 0,
+        "down": true
+      }
+    },
+    {
+      "tick": 13224363,
+      "key": {
+        "row": 6,
+        "col": 0,
+        "down": false
+      }
+    },
+    {
+      "tick": 16273407,
+      "tape": "play"
+    }
+  ]
+}

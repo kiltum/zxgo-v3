@@ -40,6 +40,13 @@ type sdlUI struct {
 	texture  *C.SDL_Texture
 	width    int // framebuffer width in pixels
 	height   int // framebuffer height in pixels
+
+	// swallowed holds the host-chord keys whose press was eaten as a command, so
+	// their release can be eaten too. Deciding it from the modifier state at
+	// release time instead would get the awkward order wrong: hold P, press Cmd,
+	// release P -- the press reached the matrix but the release would not, and P
+	// would stay down.
+	swallowed map[C.SDL_Scancode]bool
 }
 
 func New(width, height int) ui.UI {
@@ -130,39 +137,38 @@ func (u *sdlUI) ProcessEvents(
 			sc := C.evScancode(&ev)
 			down := bool(C.evKeyDown(&ev))
 
-			// Cmd+Q = quit (Ghost key - does not exist on ZX Spectrum)
-			if sc == C.SDL_SCANCODE_Q && down {
-				mods := C.SDL_GetModState()
-				if (mods & C.SDL_KMOD_GUI) != 0 {
-					return false
-				}
-			}
-
-			// Cmd+P = tape playback control (Ghost key - does not exist on ZX Spectrum)
-			if sc == C.SDL_SCANCODE_P && down {
-				mods := C.SDL_GetModState()
-				if (mods & C.SDL_KMOD_GUI) != 0 {
-					onCommand("tape-playpause", true)
-					continue // Skip ZX key dispatch for command keys
-				}
-			}
-
-			// Cmd+S = save a screenshot of the current screen.
-			if sc == C.SDL_SCANCODE_S && down {
-				mods := C.SDL_GetModState()
-				if (mods & C.SDL_KMOD_GUI) != 0 {
-					onCommand("screenshot", true)
-					continue
-				}
-			}
-
-			// Cmd+F1 = print MARK to log (not a ZX key - emulator debug)
-			if sc == C.SDL_SCANCODE_F1 && down {
-				mods := C.SDL_GetModState()
-				if (mods & C.SDL_KMOD_GUI) != 0 {
-					if uiLog != nil {
-						uiLog.Info("MARK", "type", "debug")
+			// Host command chords (the Ghost keys - they do not exist on a ZX
+			// Spectrum). A press is eaten as a host command and its release is
+			// eaten after it: letting the release fall through to the matrix
+			// told the machine that a key it never saw go down had come up,
+			// which is not merely untidy -- a recording writes down what the
+			// matrix was told, so it put a phantom key release in the replay
+			// file.
+			if isHostChord(sc) {
+				if down {
+					if C.SDL_GetModState()&C.SDL_KMOD_GUI != 0 {
+						if sc == C.SDL_SCANCODE_Q {
+							return false // quit
+						}
+						switch sc {
+						case C.SDL_SCANCODE_P:
+							onCommand("tape-playpause", true)
+						case C.SDL_SCANCODE_S:
+							onCommand("screenshot", true)
+						case C.SDL_SCANCODE_F1:
+							// Cmd+F1 = print MARK to log (emulator debug)
+							if uiLog != nil {
+								uiLog.Info("MARK", "type", "debug")
+							}
+						}
+						if u.swallowed == nil {
+							u.swallowed = make(map[C.SDL_Scancode]bool)
+						}
+						u.swallowed[sc] = true
+						continue
 					}
+				} else if u.swallowed[sc] {
+					delete(u.swallowed, sc)
 					continue
 				}
 			}
@@ -197,6 +203,18 @@ func (u *sdlUI) Destroy() {
 		C.SDL_DestroyWindow(u.window)
 	}
 	C.SDL_Quit()
+}
+
+// isHostChord reports whether a scancode belongs to a Cmd-chord the host owns
+// rather than to the ZX keyboard. Such a key must be intercepted on both edges:
+// a press starts a host command, and the release would otherwise be handed to
+// the matrix as a key-up for a key that was never down.
+func isHostChord(sc C.SDL_Scancode) bool {
+	switch sc {
+	case C.SDL_SCANCODE_Q, C.SDL_SCANCODE_P, C.SDL_SCANCODE_S, C.SDL_SCANCODE_F1:
+		return true
+	}
+	return false
 }
 
 func dispatchKey(sc C.SDL_Scancode, pressed bool, onKey func(row, col int, pressed bool)) {

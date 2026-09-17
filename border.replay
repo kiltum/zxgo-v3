@@ -1,0 +1,469 @@
+{
+  "format": "zxgo-replay",
+  "version": 1,
+  "created": "2026-09-17T14:34:11.085782+03:00",
+  "model": "pentagon",
+  "model_name": "Pentagon 128",
+  "cpu_hz": 3584000,
+  "settings": {
+    "turbosound": true,
+    "turbosoundfm": false,
+    "gs": true,
+    "snow": false,
+    "no_fdc_timing": true,
+    "fast_tape": false
+  },
+  "media": {
+    "disk": "test/bestborder.trd"
+  },
+  "events": [
+    {
+      "tick": 7454731,
+      "key": {
+        "row": 0,
+        "col": 0,
+        "down": true
+      }
+    },
+    {
+      "tick": 8135693,
+      "key": {
+        "row": 4,
+        "col": 4,
+        "down": true
+      }
+    },
+    {
+      "tick": 8422414,
+      "key": {
+        "row": 4,
+        "col": 4,
+        "down": false
+      }
+    },
+    {
+      "tick": 8852493,
+      "key": {
+        "row": 4,
+        "col": 4,
+        "down": true
+      }
+    },
+    {
+      "tick": 9031689,
+      "key": {
+        "row": 4,
+        "col": 4,
+        "down": false
+      }
+    },
+    {
+      "tick": 9497613,
+      "key": {
+        "row": 4,
+        "col": 4,
+        "down": true
+      }
+    },
+    {
+      "tick": 9676806,
+      "key": {
+        "row": 4,
+        "col": 4,
+        "down": false
+      }
+    },
+    {
+      "tick": 10250248,
+      "key": {
+        "row": 4,
+        "col": 4,
+        "down": true
+      }
+    },
+    {
+      "tick": 10501136,
+      "key": {
+        "row": 4,
+        "col": 4,
+        "down": false
+      }
+    },
+    {
+      "tick": 10931212,
+      "key": {
+        "row": 0,
+        "col": 0,
+        "down": false
+      }
+    },
+    {
+      "tick": 12078088,
+      "key": {
+        "row": 6,
+        "col": 0,
+        "down": true
+      }
+    },
+    {
+      "tick": 12328963,
+      "key": {
+        "row": 6,
+        "col": 0,
+        "down": false
+      }
+    },
+    {
+      "tick": 15912974,
+      "key": {
+        "row": 7,
+        "col": 1,
+        "down": true
+      }
+    },
+    {
+      "tick": 15948820,
+      "key": {
+        "row": 0,
+        "col": 0,
+        "down": true
+      }
+    },
+    {
+      "tick": 15948820,
+      "key": {
+        "row": 7,
+        "col": 1,
+        "down": true
+      }
+    },
+    {
+      "tick": 16343041,
+      "key": {
+        "row": 0,
+        "col": 0,
+        "down": true
+      }
+    },
+    {
+      "tick": 16343041,
+      "key": {
+        "row": 7,
+        "col": 1,
+        "down": false
+      }
+    },
+    {
+      "tick": 16593942,
+      "key": {
+        "row": 0,
+        "col": 0,
+        "down": false
+      }
+    },
+    {
+      "tick": 16844806,
+      "key": {
+        "row": 7,
+        "col": 1,
+        "down": true
+      }
+    },
+    {
+      "tick": 17991688,
+      "key": {
+        "row": 4,
+        "col": 1,
+        "down": true
+      }
+    },
+    {
+      "tick": 18457620,
+      "key": {
+        "row": 7,
+        "col": 1,
+        "down": false
+      }
+    },
+    {
+      "tick": 18493444,
+      "key": {
+        "row": 4,
+        "col": 1,
+        "down": false
+      }
+    },
+    {
+      "tick": 19496966,
+      "key": {
+        "row": 6,
+        "col": 0,
+        "down": true
+      }
+    },
+    {
+      "tick": 19891203,
+      "key": {
+        "row": 6,
+        "col": 0,
+        "down": false
+      }
+    },
+    {
+      "tick": 25733124,
+      "key": {
+        "row": 2,
+        "col": 3,
+        "down": true
+      }
+    },
+    {
+      "tick": 25912322,
+      "key": {
+        "row": 2,
+        "col": 3,
+        "down": false
+      }
+    },
+    {
+      "tick": 27166729,
+      "key": {
+        "row": 7,
+        "col": 1,
+        "down": true
+      }
+    },
+    {
+      "tick": 27740168,
+      "key": {
+        "row": 5,
+        "col": 0,
+        "down": true
+      }
+    },
+    {
+      "tick": 28134408,
+      "key": {
+        "row": 7,
+        "col": 1,
+        "down": false
+      }
+    },
+    {
+      "tick": 28241937,
+      "key": {
+        "row": 5,
+        "col": 0,
+        "down": false
+      }
+    },
+    {
+      "tick": 30822404,
+      "key": {
+        "row": 0,
+        "col": 0,
+        "down": true
+      }
+    },
+    {
+      "tick": 31897601,
+      "key": {
+        "row": 7,
+        "col": 4,
+        "down": true
+      }
+    },
+    {
+      "tick": 32220174,
+      "key": {
+        "row": 0,
+        "col": 0,
+        "down": false
+      }
+    },
+    {
+      "tick": 32220174,
+      "key": {
+        "row": 7,
+        "col": 4,
+        "down": false
+      }
+    },
+    {
+      "tick": 32542727,
+      "key": {
+        "row": 2,
+        "col": 2,
+        "down": true
+      }
+    },
+    {
+      "tick": 32793607,
+      "key": {
+        "row": 2,
+        "col": 2,
+        "down": false
+      }
+    },
+    {
+      "tick": 33295367,
+      "key": {
+        "row": 1,
+        "col": 1,
+        "down": true
+      }
+    },
+    {
+      "tick": 33653782,
+      "key": {
+        "row": 1,
+        "col": 1,
+        "down": false
+      }
+    },
+    {
+      "tick": 33653782,
+      "key": {
+        "row": 2,
+        "col": 4,
+        "down": true
+      }
+    },
+    {
+      "tick": 33904642,
+      "key": {
+        "row": 2,
+        "col": 4,
+        "down": false
+      }
+    },
+    {
+      "tick": 35481601,
+      "key": {
+        "row": 0,
+        "col": 0,
+        "down": true
+      }
+    },
+    {
+      "tick": 35983371,
+      "key": {
+        "row": 7,
+        "col": 4,
+        "down": true
+      }
+    },
+    {
+      "tick": 36234244,
+      "key": {
+        "row": 0,
+        "col": 0,
+        "down": false
+      }
+    },
+    {
+      "tick": 36234244,
+      "key": {
+        "row": 7,
+        "col": 4,
+        "down": false
+      }
+    },
+    {
+      "tick": 36736016,
+      "key": {
+        "row": 5,
+        "col": 1,
+        "down": true
+      }
+    },
+    {
+      "tick": 37058566,
+      "key": {
+        "row": 5,
+        "col": 1,
+        "down": false
+      }
+    },
+    {
+      "tick": 37381136,
+      "key": {
+        "row": 2,
+        "col": 3,
+        "down": true
+      }
+    },
+    {
+      "tick": 37632019,
+      "key": {
+        "row": 2,
+        "col": 3,
+        "down": false
+      }
+    },
+    {
+      "tick": 38133767,
+      "key": {
+        "row": 1,
+        "col": 2,
+        "down": true
+      }
+    },
+    {
+      "tick": 38384655,
+      "key": {
+        "row": 1,
+        "col": 2,
+        "down": false
+      }
+    },
+    {
+      "tick": 40284163,
+      "key": {
+        "row": 7,
+        "col": 1,
+        "down": true
+      }
+    },
+    {
+      "tick": 41216001,
+      "key": {
+        "row": 5,
+        "col": 0,
+        "down": true
+      }
+    },
+    {
+      "tick": 41502723,
+      "key": {
+        "row": 7,
+        "col": 1,
+        "down": false
+      }
+    },
+    {
+      "tick": 41646089,
+      "key": {
+        "row": 5,
+        "col": 0,
+        "down": false
+      }
+    },
+    {
+      "tick": 49136656,
+      "key": {
+        "row": 6,
+        "col": 0,
+        "down": true
+      }
+    },
+    {
+      "tick": 49459206,
+      "key": {
+        "row": 6,
+        "col": 0,
+        "down": false
+      }
+    }
+  ]
+}
