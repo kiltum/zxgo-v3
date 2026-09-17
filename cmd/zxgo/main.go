@@ -5,10 +5,8 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"path/filepath"
 	"runtime"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/kiltum/zxgo-v3/internal/emulator"
@@ -146,16 +144,17 @@ func main() {
 
 	emu.Reset()
 
-	// Phase 6: Load snapshot file if specified
+	// Phase 6: Load snapshot file if specified. Both flags may name a .zip: the
+	// emulator unpacks it and picks the snapshot format by the name inside.
 	if *snaFlag != "" {
-		if err := loadSnapshot(emu, *snaFlag, "sna"); err != nil {
+		if err := loadSnapshot(emu, *snaFlag); err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to load SNA snapshot: %v\n", err)
 			os.Exit(1)
 		}
 	}
 
 	if *z80Flag != "" {
-		if err := loadSnapshot(emu, *z80Flag, "z80"); err != nil {
+		if err := loadSnapshot(emu, *z80Flag); err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to load Z80 snapshot: %v\n", err)
 			os.Exit(1)
 		}
@@ -170,25 +169,13 @@ func main() {
 		}()
 	}
 
-	// Phase 5: Load TAP/TZX file if specified
+	// Phase 5: Load TAP/TZX file if specified. The path may be a .zip holding
+	// one: media.LoadTapeFile unpacks it and detects the format by the name
+	// inside, so no caller here has to care.
 	if *tapFlag != "" {
-		tapFile, err := os.Open(*tapFlag)
+		tape, err := media.LoadTapeFile(*tapFlag)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to open tape file: %v\n", err)
-			os.Exit(1)
-		}
-		defer tapFile.Close()
-
-		var tape *media.Tape
-		// Detect format by file extension (though content should also be checked in production)
-		if len(*tapFlag) > 4 && (*tapFlag)[len(*tapFlag)-4:] == ".tzx" {
-			tape, err = media.LoadTZX(tapFile, *tapFlag)
-		} else {
-			tape, err = media.LoadTAP(tapFile, *tapFlag)
-		}
-
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to parse tape file: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Failed to load tape file: %v\n", err)
 			os.Exit(1)
 		}
 
@@ -199,6 +186,11 @@ func main() {
 
 		fmt.Printf("  Loaded %s: %s (%d blocks, %d pulses)\n",
 			tape.Format, *tapFlag, len(tape.Blocks), len(tape.Pulses))
+		// An archive can hold several images (a 48k and a 128k tape, say); say
+		// which one was taken, since the pick is not otherwise visible.
+		if tape.FileName != *tapFlag {
+			fmt.Printf("  Archive entry: %s\n", tape.FileName)
+		}
 
 		// Tape is loaded but NOT playing - manual control like real tape recorder
 		fmt.Println("  Tape loaded. Controls:")
@@ -211,56 +203,14 @@ func main() {
 		fmt.Println("  Press CMD+S at any time to save the screen as a PNG")
 	}
 
-	// Phase 7: Load disk image if specified
+	// Phase 7: Load disk image if specified (.trd/.scl/.dsk, optionally zipped).
 	if *diskFlag != "" {
-		diskFile, err := os.Open(*diskFlag)
+		disk, err := media.LoadDiskFile(*diskFlag)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to open disk image: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Failed to load disk image: %v\n", err)
 			os.Exit(1)
 		}
-		defer diskFile.Close()
-
-		// Detect disk format by file extension
-		ext := filepath.Ext(*diskFlag)
-		var disk *media.Disk
-
-		switch strings.ToLower(ext) {
-		case ".trd", ".trd0", ".trd1":
-			disk, err = media.LoadTRDisk(diskFile)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Failed to load TR-DOS disk image: %v\n", err)
-				os.Exit(1)
-			}
-			fmt.Printf("  Loaded TR-DOS disk: %s\n", *diskFlag)
-
-		case ".scl":
-			// SCL format - our media library now supports it with 99.9% success rate
-			disk, err = media.LoadSCL(diskFile)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Failed to load SCL disk image: %v\n", err)
-				os.Exit(1)
-			}
-			fmt.Printf("  Loaded SCL disk: %s\n", *diskFlag)
-
-		case ".dsk":
-			// +3 DOS format (or alternative formats detected)
-			disk, err = media.LoadDSK(diskFile)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Failed to load DSK disk image: %v\n", err)
-				os.Exit(1)
-			}
-			fmt.Printf("  Loaded DSK disk: %s\n", *diskFlag)
-
-		default:
-			// Try to detect format by content
-			fmt.Fprintf(os.Stderr, "Unknown disk format: %s (supported: .trd)\n", ext)
-			os.Exit(1)
-		}
-
-		if disk == nil {
-			fmt.Fprintln(os.Stderr, "Failed to load disk image")
-			os.Exit(1)
-		}
+		fmt.Printf("  Loaded %s disk: %s\n", disk.Type, *diskFlag)
 
 		// Mount disk to Beta Disk controller
 		if err := emu.LoadDisk(disk); err != nil {
@@ -282,44 +232,18 @@ func main() {
 	run(emu)
 }
 
-// loadSnapshot loads a snapshot file (SNA or Z80) into the emulator
-func loadSnapshot(emu *emulator.Emulator, filePath, format string) error {
-	file, err := os.Open(filePath)
+// loadSnapshot loads a snapshot file (.sna or .z80, optionally packed in a .zip)
+// into the emulator. The format is not passed in: it is whatever the file (or
+// the archive entry) turns out to be, so -sna and -z80 both just work.
+func loadSnapshot(emu *emulator.Emulator, filePath string) error {
+	info, err := emu.LoadSnapshotFile(filePath)
 	if err != nil {
-		return fmt.Errorf("failed to open snapshot file: %w", err)
+		return err
 	}
-	defer file.Close()
-
-	// Parsing lives in pkg/snap, applying lives in internal/emulator: the
-	// emulator is the only thing that knows which machine it is, which is what
-	// lets it refuse a snapshot for a machine this is not.
-	switch format {
-	case "sna":
-		s, err := snap.LoadSNA(file)
-		if err != nil {
-			return fmt.Errorf("failed to parse SNA file: %w", err)
-		}
-		if err := emu.LoadSNA(s); err != nil {
-			return err
-		}
-		// The SNA format carries no machine byte: 128K-ness is implied by the
-		// file length, so a banked machine reports as "128k".
-		fmt.Printf("  Loaded SNA snapshot: %s (%s, %d bytes RAM)\n",
-			filePath, snapshotClass(s.Is128K, 0), len(s.RAM))
-
-	case "z80":
-		z, err := snap.LoadZ80(file)
-		if err != nil {
-			return fmt.Errorf("failed to parse Z80 file: %w", err)
-		}
-		if err := emu.LoadZ80(z); err != nil {
-			return err
-		}
-		fmt.Printf("  Loaded Z80 snapshot: %s (%s, %d bytes RAM)\n",
-			filePath, snapshotClass(z.Is128K, z.HardwareMode), len(z.RAM))
-
-	default:
-		return fmt.Errorf("unsupported snapshot format: %s", format)
+	fmt.Printf("  Loaded %s snapshot: %s (%s, %d bytes RAM)\n",
+		info.Format, filePath, snapshotClass(info), info.RAMBytes)
+	if info.Name != filePath {
+		fmt.Printf("  Archive entry: %s\n", info.Name)
 	}
 	return nil
 }
@@ -327,11 +251,11 @@ func loadSnapshot(emu *emulator.Emulator, filePath, format string) error {
 // snapshotClass names the machine a snapshot is for, for the load message. The
 // hardware mode is the finer answer when the file carries one, since Is128K
 // alone would report every banked machine as a plain 128K.
-func snapshotClass(is128K bool, hardwareMode uint8) string {
-	if !is128K {
+func snapshotClass(info emulator.SnapshotInfo) string {
+	if !info.Is128K {
 		return "48k"
 	}
-	switch hardwareMode {
+	switch info.HardwareMode {
 	case 7:
 		return "+3"
 	case 9:
@@ -360,7 +284,8 @@ func saveSnapshot(emu *emulator.Emulator, filePath string) error {
 		return fmt.Errorf("failed to write SNA file: %w", err)
 	}
 
-	fmt.Printf("  Saved snapshot: %s (%s)\n", filePath, snapshotClass(s.Is128K, 0))
+	fmt.Printf("  Saved snapshot: %s (%s)\n", filePath,
+		snapshotClass(emulator.SnapshotInfo{Is128K: s.Is128K}))
 	return nil
 }
 

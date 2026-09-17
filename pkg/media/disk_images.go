@@ -108,6 +108,7 @@ func LoadTRDisk(r io.Reader) (*Disk, error) {
 	}
 
 	disk := newBlankTRDOSDisk(cylinders, trdSides)
+	disk.Type = DiskTypeTRD
 
 	for pos := 0; pos*trdSectorSize < len(data); pos++ {
 		track, side, sectorID := trdPos(pos)

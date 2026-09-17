@@ -2,9 +2,12 @@ package mem
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
+	"github.com/kiltum/zxgo-v3/pkg/archive"
 	"github.com/kiltum/zxgo-v3/pkg/model"
 	"github.com/kiltum/zxgo-v3/pkg/rom"
 )
@@ -44,6 +47,10 @@ func LoadROMLayout(layout *model.ROMLayout, romsDir string) (map[int][]byte, err
 // loadROMDescriptor loads a single ROM from file or embedded data.
 // FileOffset and SizeKB slicing is applied uniformly regardless of source, so a
 // multi-bank ROM stored as one file (or one embedded blob) can feed several banks.
+//
+// The file may also be packed: a ROM set that ships as "48.rom.zip" (or any
+// .zip holding a .rom) overrides the embedded image the same way the bare file
+// does, so an override does not have to be unpacked by hand first.
 func loadROMDescriptor(desc *model.ROMDescriptor, romsDir string) ([]byte, error) {
 	var data []byte
 
@@ -54,7 +61,7 @@ func loadROMDescriptor(desc *model.ROMDescriptor, romsDir string) ([]byte, error
 			path = filepath.Join(romsDir, path)
 		}
 
-		fileData, err := os.ReadFile(path)
+		fileData, err := readROMFile(path)
 		if err == nil {
 			data = fileData
 		} else if !os.IsNotExist(err) {
@@ -86,4 +93,38 @@ func loadROMDescriptor(desc *model.ROMDescriptor, romsDir string) ([]byte, error
 		return data[desc.FileOffset:end], nil
 	}
 	return data, nil
+}
+
+// readROMFile reads a ROM override from disk, unpacking a .zip when the file is
+// one. A missing ".zip" beside a missing name is still a missing file, so the
+// caller's fall-through to the embedded ROM is unchanged.
+func readROMFile(path string) ([]byte, error) {
+	if strings.EqualFold(filepath.Ext(path), ".zip") {
+		return readZippedROM(path)
+	}
+	data, err := os.ReadFile(path)
+	if err == nil {
+		return data, nil
+	}
+	if !os.IsNotExist(err) {
+		return nil, err
+	}
+	// A zipped override may sit beside the bare name it stands in for:
+	// roms/48.rom missing, roms/48.rom.zip present.
+	zipped, zerr := readZippedROM(path + ".zip")
+	if zerr != nil {
+		return nil, err // report the bare name: that is what the layout asked for
+	}
+	return zipped, nil
+}
+
+// readZippedROM opens path as a .zip and reads the ROM image inside it (the
+// pick is archive.Open's: a ".rom" entry wins, else the first regular file).
+func readZippedROM(path string) ([]byte, error) {
+	r, _, err := archive.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+	return io.ReadAll(r)
 }

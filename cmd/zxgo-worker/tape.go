@@ -3,31 +3,16 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
-	"strings"
 
 	"github.com/kiltum/zxgo-v3/internal/emulator"
 	"github.com/kiltum/zxgo-v3/pkg/media"
 )
 
-// loadTapeFile loads a .tap or .tzx tape into the emulator (not started).
+// loadTapeFile loads a .tap or .tzx tape into the emulator (not started). The
+// path may be a .zip holding the tape: media.LoadTapeFile unpacks it and detects
+// the format from the name inside, so nothing here depends on the extension.
 func loadTapeFile(e *emulator.Emulator, path string) error {
-	f, err := os.Open(path)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	var tape *media.Tape
-	switch strings.ToLower(filepath.Ext(path)) {
-	case ".tap":
-		tape, err = media.LoadTAP(f, path)
-	case ".tzx":
-		tape, err = media.LoadTZX(f, path)
-	default:
-		return fmt.Errorf("unknown tape format: %s", filepath.Ext(path))
-	}
+	tape, err := media.LoadTapeFile(path)
 	if err != nil {
 		return err
 	}

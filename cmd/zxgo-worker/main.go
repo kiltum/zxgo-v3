@@ -12,7 +12,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/kiltum/zxgo-v3/internal/emulator"
@@ -634,22 +633,11 @@ func (w *worker) writeRegister(raw json.RawMessage) (any, error) {
 	return "ok", nil
 }
 
-// loadDisk opens and decodes a disk image by extension (.trd/.scl/.dsk).
+// loadDisk opens and decodes a disk image by extension (.trd/.scl/.dsk). The
+// path may be a .zip holding the image; media.LoadDiskFile unpacks it and picks
+// the format from the name inside.
 func loadDisk(path string) (*media.Disk, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	switch strings.ToLower(filepath.Ext(path)) {
-	case ".trd", ".trd0", ".trd1":
-		return media.LoadTRDisk(f)
-	case ".scl":
-		return media.LoadSCL(f)
-	case ".dsk":
-		return media.LoadDSK(f)
-	}
-	return nil, fmt.Errorf("unknown disk format: %s", filepath.Ext(path))
+	return media.LoadDiskFile(path)
 }
 
 // asciiDump renders bytes as printable ASCII with '.' for non-printables.

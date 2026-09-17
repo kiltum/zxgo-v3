@@ -2,39 +2,18 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
-	"path/filepath"
-	"strings"
 
 	"github.com/kiltum/zxgo-v3/internal/emulator"
 	"github.com/kiltum/zxgo-v3/pkg/snap"
 )
 
 // loadSnapshotFile loads a .sna or .z80 snapshot from path into the emulator.
+// The path may be a .zip holding the snapshot; the emulator unpacks it and picks
+// the format from the name inside.
 func loadSnapshotFile(e *emulator.Emulator, path string) error {
-	f, err := os.Open(path)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	switch strings.ToLower(filepath.Ext(path)) {
-	case ".sna":
-		s, err := snap.LoadSNA(f)
-		if err != nil {
-			return err
-		}
-		return e.LoadSNA(s)
-	case ".z80":
-		z, err := snap.LoadZ80(f)
-		if err != nil {
-			return err
-		}
-		return e.LoadZ80(z)
-	default:
-		return fmt.Errorf("unknown snapshot format: %s", filepath.Ext(path))
-	}
+	_, err := e.LoadSnapshotFile(path)
+	return err
 }
 
 // loadSnapshot loads a snapshot file into an existing machine.
