@@ -22,7 +22,19 @@ type genericMapper struct {
 	// trdos is the shared TR-DOS arbitration state (per emulator), updated on ROM
 	// switches so the Kempston joystick stands down while TR-DOS is paged in.
 	trdos *io_ports.TRDosState
+
+	// paging7FFD is the last byte written to 0x7FFD, which is what an SNA
+	// snapshot stores to describe the paging. It is a record of the write, not a
+	// reading of the banking scheme's state: the two agree except when the lock
+	// bit (D5) is set and later writes are ignored, and recording the write is
+	// both what the format means and what the loader will replay.
+	paging7FFD uint8
 }
+
+// PagingValue returns the last byte written to the 0x7FFD paging port. The
+// emulator uses it when saving a 128K snapshot; a model with no paging port
+// (the 48K) never sets it, so 0 is the right answer there too.
+func (m *genericMapper) PagingValue() uint8 { return m.paging7FFD }
 
 // SetTRDosState wires the shared TR-DOS arbitration state.
 func (m *genericMapper) SetTRDosState(s *io_ports.TRDosState) { m.trdos = s }
@@ -155,6 +167,9 @@ func (m *genericMapper) ULAReadByte(addr uint16) uint8 {
 }
 
 func (m *genericMapper) WritePort(port uint16, value uint8) {
+	if (port & 0xFFFF) == 0x7FFD {
+		m.paging7FFD = value
+	}
 	// Delegate to the banking scheme
 	m.scheme.WritePort(port, value)
 }
@@ -172,6 +187,7 @@ func (m *genericMapper) Reset() {
 	}
 	// Reset banking scheme
 	m.scheme.Reset()
+	m.paging7FFD = 0
 	// TR-DOS is not paged after a reset (the scheme returns to the default ROM);
 	// clear the arbitration state so Kempston stands up again.
 	if m.trdos != nil {

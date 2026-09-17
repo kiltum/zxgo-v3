@@ -290,56 +290,62 @@ func loadSnapshot(emu *emulator.Emulator, filePath, format string) error {
 	}
 	defer file.Close()
 
+	// Parsing lives in pkg/snap, applying lives in internal/emulator: the
+	// emulator is the only thing that knows which machine it is, which is what
+	// lets it refuse a snapshot for a machine this is not.
 	switch format {
 	case "sna":
-		snap, err := snap.LoadSNA(file)
+		s, err := snap.LoadSNA(file)
 		if err != nil {
 			return fmt.Errorf("failed to parse SNA file: %w", err)
 		}
-
-		// Apply snapshot to emulator
-		if err := applySnapshot(emu, snap); err != nil {
-			return fmt.Errorf("failed to apply snapshot: %w", err)
+		if err := emu.LoadSNA(s); err != nil {
+			return err
 		}
-
-		// Determine model type from snapshot
-		modelType := "48k"
-		if snap.Is128K {
-			modelType = "128k"
-		}
-
-		fmt.Printf("  Loaded SNA snapshot: %s (%s model, %d bytes RAM)\n",
-			filePath, modelType, len(snap.RAM))
+		// The SNA format carries no machine byte: 128K-ness is implied by the
+		// file length, so a banked machine reports as "128k".
+		fmt.Printf("  Loaded SNA snapshot: %s (%s, %d bytes RAM)\n",
+			filePath, snapshotClass(s.Is128K, 0), len(s.RAM))
 
 	case "z80":
-		zsnap, err := snap.LoadZ80(file)
+		z, err := snap.LoadZ80(file)
 		if err != nil {
 			return fmt.Errorf("failed to parse Z80 file: %w", err)
 		}
-
-		// Convert Z80 to emulator state
-		if err := applyZ80Snapshot(emu, zsnap); err != nil {
-			return fmt.Errorf("failed to apply Z80 snapshot: %w", err)
+		if err := emu.LoadZ80(z); err != nil {
+			return err
 		}
-
-		modelType := "48k"
-		if zsnap.Is128K {
-			modelType = "128k"
-		}
-
-		fmt.Printf("  Loaded Z80 snapshot: %s (%s model, %d bytes RAM)\n",
-			filePath, modelType, len(zsnap.RAM))
+		fmt.Printf("  Loaded Z80 snapshot: %s (%s, %d bytes RAM)\n",
+			filePath, snapshotClass(z.Is128K, z.HardwareMode), len(z.RAM))
 
 	default:
 		return fmt.Errorf("unsupported snapshot format: %s", format)
 	}
-
 	return nil
 }
 
-// saveSnapshot saves the current emulator state as an SNA file
+// snapshotClass names the machine a snapshot is for, for the load message. The
+// hardware mode is the finer answer when the file carries one, since Is128K
+// alone would report every banked machine as a plain 128K.
+func snapshotClass(is128K bool, hardwareMode uint8) string {
+	if !is128K {
+		return "48k"
+	}
+	switch hardwareMode {
+	case 7:
+		return "+3"
+	case 9:
+		return "pentagon"
+	default:
+		return "128k"
+	}
+}
+
+// saveSnapshot writes the machine's state as an SNA file. The emulator builds
+// it - including the 128K form, which this used to write as 48K whatever the
+// machine was.
 func saveSnapshot(emu *emulator.Emulator, filePath string) error {
-	snapshot, err := createSnapshot(emu)
+	s, err := emu.CreateSNA()
 	if err != nil {
 		return fmt.Errorf("failed to create snapshot: %w", err)
 	}
@@ -350,205 +356,12 @@ func saveSnapshot(emu *emulator.Emulator, filePath string) error {
 	}
 	defer file.Close()
 
-	if err := snap.SaveSNA(file, snapshot); err != nil {
+	if err := snap.SaveSNA(file, s); err != nil {
 		return fmt.Errorf("failed to write SNA file: %w", err)
 	}
 
-	fmt.Printf("  Saved snapshot: %s\n", filePath)
+	fmt.Printf("  Saved snapshot: %s (%s)\n", filePath, snapshotClass(s.Is128K, 0))
 	return nil
-}
-
-// applySnapshot applies a loaded SNA snapshot to the emulator
-func applySnapshot(emu *emulator.Emulator, snapshot *snap.Snapshot) error {
-	// Validate snapshot compatibility
-	if !snapshot.ValidFor48K() && !snapshot.ValidFor128K() {
-		return fmt.Errorf("invalid snapshot: incompatible RAM size")
-	}
-
-	// Get CPU instance
-	cpu := emu.CPU()
-
-	// Set main registers from SNA header
-	cpu.A = snapshot.Header.A
-	cpu.F = snapshot.Header.F
-	cpu.B, cpu.C = byte(snapshot.Header.BC>>8), byte(snapshot.Header.BC&0xFF)
-	cpu.D, cpu.E = byte(snapshot.Header.DE>>8), byte(snapshot.Header.DE&0xFF)
-	cpu.H, cpu.L = byte(snapshot.Header.HL>>8), byte(snapshot.Header.HL&0xFF)
-
-	// Set alternate registers
-	cpu.A_, cpu.F_ = byte(snapshot.Header.AF_>>8), byte(snapshot.Header.AF_&0xFF)
-	cpu.B_, cpu.C_ = byte(snapshot.Header.BC_>>8), byte(snapshot.Header.BC_&0xFF)
-	cpu.D_, cpu.E_ = byte(snapshot.Header.DE_>>8), byte(snapshot.Header.DE_&0xFF)
-	cpu.H_, cpu.L_ = byte(snapshot.Header.HL_>>8), byte(snapshot.Header.HL_&0xFF)
-
-	// Set index registers
-	cpu.IX = snapshot.Header.IX
-	cpu.IY = snapshot.Header.IY
-
-	// Set special registers
-	cpu.I = snapshot.Header.I
-	cpu.R = snapshot.Header.R
-	cpu.IM = snapshot.Header.IM
-	cpu.SP = snapshot.Header.SP
-
-	// Set interrupt flags from IFF2 (bit 2 = interrupt enabled)
-	cpu.IFF1 = (snapshot.Header.IFF2 & 0x04) != 0
-	cpu.IFF2 = cpu.IFF1
-
-	// Load RAM into memory mapper (SNA RAM starts at 0x4000)
-	mapper := emu.Mapper()
-	if len(snapshot.RAM) != 49152 {
-		return fmt.Errorf("invalid snapshot RAM size: expected 49152, got %d", len(snapshot.RAM))
-	}
-
-	// Write RAM to addresses 0x4000-0xFFFF
-	for i := 0; i < 49152; i++ {
-		addr := uint16(0x4000 + i)
-		mapper.WriteByte(addr, snapshot.RAM[i])
-	}
-
-	// Set ULA border color
-	ula := emu.ULA()
-	ula.SetBorderColor(int(snapshot.Header.Border))
-
-	// Pop PC from stack (SNA stores PC at stack pointer location)
-	pc, err := snapshot.GetRegisterValue("PC")
-	if err == nil {
-		cpu.PC = uint16(pc)
-		// Adjust stack pointer past the PC we just consumed
-		cpu.SP += 2
-	} else {
-		// If PC couldn't be retrieved from stack, use a default
-		cpu.PC = 0x8000 // Safe default for basic operation
-	}
-
-	return nil
-}
-
-// applyZ80Snapshot applies a loaded Z80 snapshot to the emulator
-func applyZ80Snapshot(emu *emulator.Emulator, snapshot *snap.Z80Snapshot) error {
-	// Get CPU instance
-	cpu := emu.CPU()
-
-	// Set main registers from Z80 header
-	cpu.A = byte(snapshot.Header.AF >> 8)
-	cpu.F = byte(snapshot.Header.AF & 0xFF)
-	cpu.B, cpu.C = byte(snapshot.Header.BC>>8), byte(snapshot.Header.BC&0xFF)
-	cpu.D, cpu.E = byte(snapshot.Header.DE>>8), byte(snapshot.Header.DE&0xFF)
-	cpu.H, cpu.L = byte(snapshot.Header.HL>>8), byte(snapshot.Header.HL&0xFF)
-
-	// Set alternate registers
-	cpu.A_, cpu.F_ = byte(snapshot.Header.AF_>>8), byte(snapshot.Header.AF_&0xFF)
-	cpu.H_, cpu.L_ = byte(snapshot.Header.HL_>>8), byte(snapshot.Header.HL_&0xFF)
-	cpu.D_, cpu.E_ = byte(snapshot.Header.DE_>>8), byte(snapshot.Header.DE_&0xFF)
-	cpu.B_, cpu.C_ = byte(snapshot.Header.BC_>>8), byte(snapshot.Header.BC_&0xFF)
-
-	// Set index registers
-	cpu.IX = snapshot.Header.IX
-	cpu.IY = snapshot.Header.IY
-
-	// Set special registers
-	cpu.I = snapshot.Header.I
-	cpu.R = snapshot.Header.R
-	cpu.SP = snapshot.Header.SP
-	cpu.PC = snapshot.Header.PC
-
-	// Set interrupt flags: byte 27 = IFF1 (0=DI, otherwise EI), byte 28 = IFF2.
-	cpu.IFF1 = snapshot.Header.IFF != 0
-	cpu.IFF2 = snapshot.Header.IFF2 != 0
-
-	// Set interrupt mode (byte 29, bits 0-1; already masked in the loader).
-	cpu.IM = snapshot.Header.IM
-
-	// Load RAM into memory mapper
-	mapper := emu.Mapper()
-
-	if snapshot.Is128K {
-		// 128K format: RAM pages arranged according to Z80 page mapping
-		// Pages 3-10 map to ZX Spectrum 128K pages 0-7
-		expectedSize := 8 * 16384 // 8 pages * 16KB = 128KB
-
-		if len(snapshot.RAM) == expectedSize {
-			// Write each 16K RAM bank from the snapshot data
-			for bank := 0; bank < 8; bank++ {
-				bankStart := bank * 16384
-				bankEnd := bankStart + 16384
-				mapper.SetBank(bank, snapshot.RAM[bankStart:bankEnd])
-			}
-		} else {
-			return fmt.Errorf("incomplete 128K Z80 snapshot: got %d bytes RAM, expected %d bytes for 128K format", len(snapshot.RAM), expectedSize)
-		}
-	} else {
-		// 48K format: write full 48K RAM starting at 0x4000
-		if len(snapshot.RAM) == 49152 {
-			// Write full 48K RAM starting at 0x4000
-			for i := 0; i < len(snapshot.RAM); i++ {
-				addr := uint16(0x4000 + i)
-				mapper.WriteByte(addr, snapshot.RAM[i])
-			}
-		} else if len(snapshot.RAM) > 0 {
-			return fmt.Errorf("incomplete or compressed Z80 snapshot: got %d bytes RAM, expected 49152 for 48K format", len(snapshot.RAM))
-		}
-	}
-
-	return nil
-}
-
-// createSnapshot creates an SNA snapshot from the current emulator state
-func createSnapshot(emu *emulator.Emulator) (*snap.Snapshot, error) {
-	// Get CPU instance
-	cpu := emu.CPU()
-
-	// Build SNA header from CPU state
-	header := snap.SNAHeader{
-		// Main registers
-		A:  cpu.A,
-		F:  cpu.F,
-		BC: uint16(cpu.B)<<8 | uint16(cpu.C),
-		DE: uint16(cpu.D)<<8 | uint16(cpu.E),
-		HL: uint16(cpu.H)<<8 | uint16(cpu.L),
-
-		// Alternate registers
-		AF_: uint16(cpu.A_)<<8 | uint16(cpu.F_),
-		BC_: uint16(cpu.B_)<<8 | uint16(cpu.C_),
-		DE_: uint16(cpu.D_)<<8 | uint16(cpu.E_),
-		HL_: uint16(cpu.H_)<<8 | uint16(cpu.L_),
-
-		// Index registers
-		IY: cpu.IY,
-		IX: cpu.IX,
-
-		// Special registers
-		I:  cpu.I,
-		R:  cpu.R,
-		SP: cpu.SP,
-		IM: cpu.IM,
-	}
-
-	// Set IFF2 from IFF1 state
-	if cpu.IFF1 {
-		header.IFF2 = 0x04
-	}
-
-	// Capture ULA state for border color
-	ula := emu.ULA()
-	header.Border = uint8(ula.BorderColor()) // Assuming there's aBorderColor() method
-
-	// Create snapshot and capture RAM
-	snapshot := &snap.Snapshot{
-		Header: header,
-		RAM:    make([]byte, 49152),
-		Is128K: false, // Default to 48K for now
-	}
-
-	// Capture current RAM state from 0x4000-0xFFFF
-	mapper := emu.Mapper()
-	for i := 0; i < 49152; i++ {
-		addr := uint16(0x4000 + i)
-		snapshot.RAM[i] = mapper.ReadByte(addr)
-	}
-
-	return snapshot, nil
 }
 
 func run(emu *emulator.Emulator) {

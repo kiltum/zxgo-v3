@@ -53,6 +53,12 @@ type Z80Snapshot struct {
 	RAM     []byte     // RAM contents (may be compressed)
 	Is128K  bool       // True for 128K snapshots
 	Version Z80Version // Format version
+	// HardwareMode is the machine the file was written on, straight out of the
+	// v2/v3 header: 0-2 are 48K variants, 3-7 the 128K family (3-6 128K/+2,
+	// 7 +3/+2A) and 9 the Pentagon as emulators write it. It is kept rather than
+	// collapsed into Is128K so the loader can tell a +3 snapshot from a 128K one
+	// and say so; a v1 file has no such field and reports 0.
+	HardwareMode uint8
 }
 
 // LoadZ80 reads a ZX Spectrum Z80 snapshot file following Z80_specs.txt.
@@ -158,10 +164,11 @@ func LoadZ80(r io.Reader) (*Z80Snapshot, error) {
 	}
 
 	return &Z80Snapshot{
-		Header:  header,
-		RAM:     ramData,
-		Is128K:  is128K,
-		Version: version,
+		Header:       header,
+		RAM:          ramData,
+		Is128K:       is128K,
+		HardwareMode: header.LatestHardware,
+		Version:      version,
 	}, nil
 }
 
