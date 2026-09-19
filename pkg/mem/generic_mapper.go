@@ -224,6 +224,45 @@ func (m *genericMapper) RestoreSnapshot(banks [][]byte) {
 	}
 }
 
+// NumRAMBanks returns how many RAM banks the scheme gave this machine.
+func (m *genericMapper) NumRAMBanks() int { return len(m.rams) }
+
+// PagingState returns the banking scheme's name and its encoded state, plus the
+// mapper's record of the last byte written to 0x7FFD.
+func (m *genericMapper) PagingState() PagingState {
+	return PagingState{
+		Scheme:    m.scheme.Name(),
+		Blob:      m.scheme.Encode(),
+		Write7FFD: m.paging7FFD,
+	}
+}
+
+// RestorePagingState applies a paging state to this machine.
+//
+// The scheme name has to match: the 128K's slot-3 page is three bits and the
+// Pentagon 512's is five in the same field, and the +2A/+3 has a whole extra
+// paging mode, so a blob from one read by another would produce a machine that
+// looks restored and pages to the wrong banks.
+func (m *genericMapper) RestorePagingState(s PagingState) error {
+	if s.Scheme != m.scheme.Name() {
+		return fmt.Errorf("paging scheme %q does not belong to a %q machine", s.Scheme, m.scheme.Name())
+	}
+	if err := m.scheme.Decode(s.Blob); err != nil {
+		return err
+	}
+	m.paging7FFD = s.Write7FFD
+
+	// The Kempston/FDC port arbitration is derived, not stored: the Beta Disk
+	// only drives port 0x1F while its ROM is paged in, and the mapper is the
+	// component that knows which ROM that is. Restoring the active ROM without
+	// this leaves the joystick answering 0x1F for a TR-DOS machine, whose
+	// commands would then read as "no disk".
+	if m.trdos != nil {
+		m.trdos.SetActive(m.scheme.IsTRDOSBank(m.scheme.ActiveROM()))
+	}
+	return nil
+}
+
 func (m *genericMapper) SetROMWritable(writable bool) {
 	m.romWrite = writable
 }

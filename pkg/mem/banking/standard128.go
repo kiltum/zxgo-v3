@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/kiltum/zxgo-v3/pkg/model"
+	"github.com/kiltum/zxgo-v3/pkg/state"
 )
 
 // Standard128 implements the ZX Spectrum 128K banking scheme.
@@ -154,40 +155,42 @@ func (s *Standard128) Reset() {
 	s.previousROM = defaultROM
 }
 
-type standard128Snapshot struct {
-	ActiveROM    int
-	RAMBankSlot3 int
-	ShadowScreen bool
-	PagingLocked bool
-	PreviousROM  int
-}
-
-func (s *Standard128) Snapshot() interface{} {
-	return &standard128Snapshot{
-		ActiveROM:    s.activeROM,
-		RAMBankSlot3: s.ramBankSlot3,
-		ShadowScreen: s.shadowScreen,
-		PagingLocked: s.pagingLocked,
-		PreviousROM:  s.previousROM,
-	}
-}
-
-func (s *Standard128) Restore(state interface{}) error {
-	snap, ok := state.(*standard128Snapshot)
-	if !ok {
-		return fmt.Errorf("invalid snapshot type for Standard128")
-	}
-	s.activeROM = snap.ActiveROM
-	s.ramBankSlot3 = snap.RAMBankSlot3
-	s.shadowScreen = snap.ShadowScreen
-	s.pagingLocked = snap.PagingLocked
-	s.previousROM = snap.PreviousROM
-	return nil
-}
-
 // ShadowScreen returns true if ULA should use RAM bank 7 instead of bank 5.
 func (s *Standard128) ShadowScreen() bool {
 	return s.shadowScreen
+}
+
+// Encode writes the paging state for the native state format. Pentagon512
+// inherits this: it holds no field the 128K does not, and the 5-bit page fits
+// in the same int - the scheme *name* in the enclosing PagingState is what
+// discriminates the two.
+func (s *Standard128) Encode() []byte {
+	e := state.NewEncoder()
+	e.I64(int64(s.activeROM))
+	e.I64(int64(s.ramBankSlot3))
+	e.Bool(s.shadowScreen)
+	e.Bool(s.pagingLocked)
+	e.I64(int64(s.previousROM))
+	return e.Payload()
+}
+
+// Decode applies a blob from Encode, parsing it all before assigning.
+func (s *Standard128) Decode(blob []byte) error {
+	d := state.NewDecoder(blob, 0)
+	activeROM := int(d.I64())
+	ramBankSlot3 := int(d.I64())
+	shadowScreen := d.Bool()
+	pagingLocked := d.Bool()
+	previousROM := int(d.I64())
+	if err := d.Err(); err != nil {
+		return fmt.Errorf("standard128 paging: %w", err)
+	}
+	s.activeROM = activeROM
+	s.ramBankSlot3 = ramBankSlot3
+	s.shadowScreen = shadowScreen
+	s.pagingLocked = pagingLocked
+	s.previousROM = previousROM
+	return nil
 }
 
 // ULAScreenBank returns the RAM bank the ULA reads for the screen (bank 5, or 7

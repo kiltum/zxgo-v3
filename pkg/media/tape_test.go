@@ -10,16 +10,16 @@ func TestLoadTAP_HeaderOnly(t *testing.T) {
 	// Total 21 bytes: [length_lo length_hi] + [19-byte header]
 	data := []byte{
 		0x13, 0x00, // Length: 19 bytes (little-endian)
-		0x00,       // Flag: 0x00 = header
+		0x00,                                             // Flag: 0x00 = header
 		'P', 'R', 'O', 'G', 'R', 'A', 'M', ' ', ' ', ' ', // Filename (10 bytes)
-		0x00,       // Length low byte
-		0x00,       // Length high byte
-		0x00,       // Start address low
-		0x80,       // Start address high
-		0x00,       // Param 2 low
-		0x80,       // Param 2 high
-		0x10,       // Block type: 0x10 = BASIC program (byte 17 in blockData, byte 19 overall)
-		0x00,       // Padding byte to reach 19 total (ZX Spectrum headers have a checksum byte that we're setting to 0)
+		0x00, // Length low byte
+		0x00, // Length high byte
+		0x00, // Start address low
+		0x80, // Start address high
+		0x00, // Param 2 low
+		0x80, // Param 2 high
+		0x10, // Block type: 0x10 = BASIC program (byte 17 in blockData, byte 19 overall)
+		0x00, // Padding byte to reach 19 total (ZX Spectrum headers have a checksum byte that we're setting to 0)
 	}
 
 	tape, err := LoadTAP(bytes.NewReader(data), "test.tap")
@@ -100,17 +100,17 @@ func TestPlaybackSequence(t *testing.T) {
 		tick     int64
 		expected bool
 	}{
-		{500, true},     // Tick 500: tapeTick=499, still in first pulse (0-999)
-		{1000, true},    // Tick 1000: tapeTick=999, still in first pulse (0-999)
-		{1050, false},   // Tick 1050: tapeTick=1049, in second pulse (1000-1999)
-		{1500, false},   // Tick 1500: tapeTick=1499, still in second pulse
-		{2000, false},   // Tick 2000: tapeTick=1999, still in second pulse
-		{2050, true},    // Tick 2050: tapeTick=2049, in third pulse (2000-2499)
-		{2250, true},    // Tick 2250: tapeTick=2249, still in third pulse
-		{2500, true},    // Tick 2500: tapeTick=2499, still in third pulse
-		{2550, false},   // Tick 2550: tapeTick=2549, in fourth pulse (2500-2999)
-		{3000, false},   // Tick 3000: tapeTick=2999, still in fourth pulse
-		{3050, true},    // Tick 3050: tapeTick=3049, past end of tape (floats high)
+		{500, true},   // Tick 500: tapeTick=499, still in first pulse (0-999)
+		{1000, true},  // Tick 1000: tapeTick=999, still in first pulse (0-999)
+		{1050, false}, // Tick 1050: tapeTick=1049, in second pulse (1000-1999)
+		{1500, false}, // Tick 1500: tapeTick=1499, still in second pulse
+		{2000, false}, // Tick 2000: tapeTick=1999, still in second pulse
+		{2050, true},  // Tick 2050: tapeTick=2049, in third pulse (2000-2499)
+		{2250, true},  // Tick 2250: tapeTick=2249, still in third pulse
+		{2500, true},  // Tick 2500: tapeTick=2499, still in third pulse
+		{2550, false}, // Tick 2550: tapeTick=2549, in fourth pulse (2500-2999)
+		{3000, false}, // Tick 3000: tapeTick=2999, still in fourth pulse
+		{3050, true},  // Tick 3050: tapeTick=3049, past end of tape (floats high)
 	}
 
 	for _, tt := range tests {
@@ -218,16 +218,16 @@ func TestPercentComplete(t *testing.T) {
 		tick     int64
 		expected float64
 	}{
-		{1, 0.0},       // Start (tick 1, position 0)
-		{100, 0.0},     // Still in first pulse (1-100)
-		{101, 25.0},    // Start of second pulse (position 1/4)
-		{200, 25.0},    // Still in second pulse (101-200)
-		{201, 50.0},    // Start of third pulse (position 2/4)
-		{300, 50.0},    // Still in third pulse (201-300)
-		{301, 75.0},    // Start of fourth pulse (position 3/4)
-		{400, 75.0},    // Still in fourth pulse (301-400)
-		{401, 100.0},   // Past end (position 4/4)
-		{500, 100.0},   // Still 100% complete
+		{1, 0.0},     // Start (tick 1, position 0)
+		{100, 0.0},   // Still in first pulse (1-100)
+		{101, 25.0},  // Start of second pulse (position 1/4)
+		{200, 25.0},  // Still in second pulse (101-200)
+		{201, 50.0},  // Start of third pulse (position 2/4)
+		{300, 50.0},  // Still in third pulse (201-300)
+		{301, 75.0},  // Start of fourth pulse (position 3/4)
+		{400, 75.0},  // Still in fourth pulse (301-400)
+		{401, 100.0}, // Past end (position 4/4)
+		{500, 100.0}, // Still 100% complete
 	}
 
 	for _, tt := range tests {
@@ -272,8 +272,8 @@ func TestBlockDataIntegrity(t *testing.T) {
 	testData := byte(0x42)
 	data := []byte{
 		0x02, 0x00, // Length: 2 bytes
-		0xFF,       // Flag: data
-		testData,   // Our test byte
+		0xFF,     // Flag: data
+		testData, // Our test byte
 	}
 
 	tape, err := LoadTAP(bytes.NewReader(data), "test.tap")

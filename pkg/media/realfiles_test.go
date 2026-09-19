@@ -147,10 +147,10 @@ func TestTAPPlaybackRealData(t *testing.T) {
 
 	// Verify playback doesn't crash and produces reasonable EAR levels
 	testTicks := []int64{
-		0,                    // Start
-		100000,              // ~28ms into playback
-		1000000,             // ~285ms into playback
-		10000000,            // ~2.8s into playback
+		0,        // Start
+		100000,   // ~28ms into playback
+		1000000,  // ~285ms into playback
+		10000000, // ~2.8s into playback
 	}
 
 	prevLevel := pb.CurrentLevel(0)
@@ -235,15 +235,15 @@ func TestTAPVsTZXConsistency(t *testing.T) {
 // TestTAPFileStructure verifies TAP file structure with real data.
 func TestTAPFileStructure(t *testing.T) {
 	tests := []struct {
-		file          string
-		minBlocks     int
-		minPulses     int
+		file             string
+		minBlocks        int
+		minPulses        int
 		expectedFilename string
 	}{
 		{
-			file:      "../../testdata/batty.tap",
-			minBlocks: 4,  // At least a few blocks (header + data)
-			minPulses: 10000, // Should have substantial pulse data
+			file:             "../../testdata/batty.tap",
+			minBlocks:        4,     // At least a few blocks (header + data)
+			minPulses:        10000, // Should have substantial pulse data
 			expectedFilename: "BATTY",
 		},
 	}
@@ -293,12 +293,12 @@ func TestTAPFileStructure(t *testing.T) {
 // TestTAPErrorHandling tests robustness with malformed or edge cases.
 func TestTAPErrorHandling(t *testing.T) {
 	tests := []struct {
-		name     string
-		data     []byte
+		name      string
+		data      []byte
 		shouldErr bool
 	}{
 		{"Empty file", []byte{}, false},
-		{"Too short for length", []byte{0x13}, false}, // Will return 0 blocks
+		{"Too short for length", []byte{0x13}, false},             // Will return 0 blocks
 		{"Invalid length field", []byte{0xFF, 0xFF, 0x00}, false}, // Length > data size
 		{"Valid minimal header", append([]byte{0x13, 0x00, 0x00}, make([]byte, 19)...), false},
 	}

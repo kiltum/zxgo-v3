@@ -99,10 +99,10 @@ func TestTRDosSectorTransfer(t *testing.T) {
 	ctrl.SetClockHz(3546900)
 	ctrl.MountDisk(disk)
 
-	ctrl.WritePort(0x00FF, 0x0C) // drive 0, side 1 (bit 4 clear), no reset
-	ctrl.WritePort(0x003F, 3)    // TRACK
-	ctrl.WritePort(0x005F, 5)    // SECTOR
-	ctrl.WritePort(0x001F, 0x80) // READ SECTOR
+	ctrl.WritePort(0x00FF, 0x0C)     // drive 0, side 1 (bit 4 clear), no reset
+	ctrl.WritePort(0x003F, 3)        // TRACK
+	ctrl.WritePort(0x005F, 5)        // SECTOR
+	ctrl.WritePort(0x001F, 0x80)     // READ SECTOR
 	ctrl.SetTick(ctrl.dataReadyTick) // advance past the rotational latency
 
 	var got []byte
@@ -174,10 +174,10 @@ func TestTRDosMultiSectorRead(t *testing.T) {
 	ctrl := NewBetaDiskController()
 	ctrl.SetClockHz(3546900)
 	ctrl.MountDisk(disk)
-	ctrl.WritePort(0x00FF, 0x1C) // drive 0, side 0
-	ctrl.WritePort(0x003F, 0)    // TRACK 0
-	ctrl.WritePort(0x005F, 1)    // SECTOR 1
-	ctrl.WritePort(0x001F, 0x90) // READ SECTOR, multiple flag set
+	ctrl.WritePort(0x00FF, 0x1C)     // drive 0, side 0
+	ctrl.WritePort(0x003F, 0)        // TRACK 0
+	ctrl.WritePort(0x005F, 1)        // SECTOR 1
+	ctrl.WritePort(0x001F, 0x90)     // READ SECTOR, multiple flag set
 	ctrl.SetTick(ctrl.dataReadyTick) // advance past the rotational latency
 
 	// Drain the transfer the way TR-DOS does: wait for DRQ or INTRQ, stop on
@@ -242,10 +242,10 @@ func TestTRDosMultiSectorReadCrossTrack(t *testing.T) {
 	ctrl := NewBetaDiskController()
 	ctrl.SetClockHz(3546900)
 	ctrl.MountDisk(disk)
-	ctrl.WritePort(0x00FF, 0x1C) // drive 0, side 0
-	ctrl.WritePort(0x003F, 0)    // TRACK 0
-	ctrl.WritePort(0x005F, 1)    // SECTOR 1
-	ctrl.WritePort(0x001F, 0x92) // READ SECTOR, multiple + side compare
+	ctrl.WritePort(0x00FF, 0x1C)     // drive 0, side 0
+	ctrl.WritePort(0x003F, 0)        // TRACK 0
+	ctrl.WritePort(0x005F, 1)        // SECTOR 1
+	ctrl.WritePort(0x001F, 0x92)     // READ SECTOR, multiple + side compare
 	ctrl.SetTick(ctrl.dataReadyTick) // advance past the rotational latency
 
 	var got []byte
@@ -293,10 +293,10 @@ func TestTRDosMultiSectorWriteCrossTrack(t *testing.T) {
 	ctrl := NewBetaDiskController()
 	ctrl.SetClockHz(3546900)
 	ctrl.MountDisk(disk)
-	ctrl.WritePort(0x00FF, 0x1C) // drive 0, side 0
-	ctrl.WritePort(0x003F, 0)    // TRACK 0
-	ctrl.WritePort(0x005F, 1)    // SECTOR 1
-	ctrl.WritePort(0x001F, 0xB2) // WRITE SECTOR, multiple + side compare
+	ctrl.WritePort(0x00FF, 0x1C)     // drive 0, side 0
+	ctrl.WritePort(0x003F, 0)        // TRACK 0
+	ctrl.WritePort(0x005F, 1)        // SECTOR 1
+	ctrl.WritePort(0x001F, 0xB2)     // WRITE SECTOR, multiple + side compare
 	ctrl.SetTick(ctrl.dataReadyTick) // advance past the rotational latency
 
 	written := 0
@@ -336,10 +336,10 @@ func TestTRDosMultiSectorWrite(t *testing.T) {
 	ctrl := NewBetaDiskController()
 	ctrl.SetClockHz(3546900)
 	ctrl.MountDisk(disk)
-	ctrl.WritePort(0x00FF, 0x1C) // drive 0, side 0
-	ctrl.WritePort(0x003F, 0)    // TRACK 0
-	ctrl.WritePort(0x005F, 1)    // SECTOR 1
-	ctrl.WritePort(0x001F, 0xB0) // WRITE SECTOR, multiple flag set
+	ctrl.WritePort(0x00FF, 0x1C)     // drive 0, side 0
+	ctrl.WritePort(0x003F, 0)        // TRACK 0
+	ctrl.WritePort(0x005F, 1)        // SECTOR 1
+	ctrl.WritePort(0x001F, 0xB0)     // WRITE SECTOR, multiple flag set
 	ctrl.SetTick(ctrl.dataReadyTick) // advance past the rotational latency
 
 	// Feed the transfer the way TR-DOS does: wait for DRQ, OUTI one byte.

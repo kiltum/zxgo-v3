@@ -266,336 +266,490 @@ func (z *Z80) executeOpcode(opcode uint8) int {
 	case 0x40: // LD B, B - NOP-like
 		return 4
 	case 0x41: // LD B, C
-		z.B = z.C; return 4
+		z.B = z.C
+		return 4
 	case 0x42: // LD B, D
-		z.B = z.D; return 4
+		z.B = z.D
+		return 4
 	case 0x43: // LD B, E
-		z.B = z.E; return 4
+		z.B = z.E
+		return 4
 	case 0x44: // LD B, H
-		z.B = z.H; return 4
+		z.B = z.H
+		return 4
 	case 0x45: // LD B, L
-		z.B = z.L; return 4
+		z.B = z.L
+		return 4
 	case 0x46: // LD B, (HL)
-		z.B = z.readByte(z.getHL()); return 7
+		z.B = z.readByte(z.getHL())
+		return 7
 	case 0x47: // LD B, A
-		z.B = z.A; return 4
+		z.B = z.A
+		return 4
 	case 0x48: // LD C, B
-		z.C = z.B; return 4
+		z.C = z.B
+		return 4
 	case 0x49: // LD C, C - NOP-like
 		return 4
 	case 0x4A:
-		z.C = z.D; return 4
+		z.C = z.D
+		return 4
 	case 0x4B:
-		z.C = z.E; return 4
+		z.C = z.E
+		return 4
 	case 0x4C:
-		z.C = z.H; return 4
+		z.C = z.H
+		return 4
 	case 0x4D:
-		z.C = z.L; return 4
+		z.C = z.L
+		return 4
 	case 0x4E: // LD C, (HL)
-		z.C = z.readByte(z.getHL()); return 7
+		z.C = z.readByte(z.getHL())
+		return 7
 	case 0x4F:
-		z.C = z.A; return 4
+		z.C = z.A
+		return 4
 	case 0x50:
-		z.D = z.B; return 4
+		z.D = z.B
+		return 4
 	case 0x51:
-		z.D = z.C; return 4
+		z.D = z.C
+		return 4
 	case 0x52: // LD D, D - NOP-like
 		return 4
 	case 0x53:
-		z.D = z.E; return 4
+		z.D = z.E
+		return 4
 	case 0x54:
-		z.D = z.H; return 4
+		z.D = z.H
+		return 4
 	case 0x55:
-		z.D = z.L; return 4
+		z.D = z.L
+		return 4
 	case 0x56: // LD D, (HL)
-		z.D = z.readByte(z.getHL()); return 7
+		z.D = z.readByte(z.getHL())
+		return 7
 	case 0x57:
-		z.D = z.A; return 4
+		z.D = z.A
+		return 4
 	case 0x58:
-		z.E = z.B; return 4
+		z.E = z.B
+		return 4
 	case 0x59:
-		z.E = z.C; return 4
+		z.E = z.C
+		return 4
 	case 0x5A:
-		z.E = z.D; return 4
+		z.E = z.D
+		return 4
 	case 0x5B: // LD E, E - NOP-like
 		return 4
 	case 0x5C:
-		z.E = z.H; return 4
+		z.E = z.H
+		return 4
 	case 0x5D:
-		z.E = z.L; return 4
+		z.E = z.L
+		return 4
 	case 0x5E: // LD E, (HL)
-		z.E = z.readByte(z.getHL()); return 7
+		z.E = z.readByte(z.getHL())
+		return 7
 	case 0x5F:
-		z.E = z.A; return 4
+		z.E = z.A
+		return 4
 	case 0x60:
-		z.H = z.B; return 4
+		z.H = z.B
+		return 4
 	case 0x61:
-		z.H = z.C; return 4
+		z.H = z.C
+		return 4
 	case 0x62:
-		z.H = z.D; return 4
+		z.H = z.D
+		return 4
 	case 0x63:
-		z.H = z.E; return 4
+		z.H = z.E
+		return 4
 	case 0x64: // LD H, H - NOP-like
 		return 4
 	case 0x65:
-		z.H = z.L; return 4
+		z.H = z.L
+		return 4
 	case 0x66: // LD H, (HL)
-		z.H = z.readByte(z.getHL()); return 7
+		z.H = z.readByte(z.getHL())
+		return 7
 	case 0x67:
-		z.H = z.A; return 4
+		z.H = z.A
+		return 4
 	case 0x68:
-		z.L = z.B; return 4
+		z.L = z.B
+		return 4
 	case 0x69:
-		z.L = z.C; return 4
+		z.L = z.C
+		return 4
 	case 0x6A:
-		z.L = z.D; return 4
+		z.L = z.D
+		return 4
 	case 0x6B:
-		z.L = z.E; return 4
+		z.L = z.E
+		return 4
 	case 0x6C:
-		z.L = z.H; return 4
+		z.L = z.H
+		return 4
 	case 0x6D: // LD L, L - NOP-like
 		return 4
 	case 0x6E: // LD L, (HL)
-		z.L = z.readByte(z.getHL()); return 7
+		z.L = z.readByte(z.getHL())
+		return 7
 	case 0x6F:
-		z.L = z.A; return 4
+		z.L = z.A
+		return 4
 	case 0x70: // LD (HL), B
-		z.writeByte(z.getHL(), z.B); return 7
+		z.writeByte(z.getHL(), z.B)
+		return 7
 	case 0x71: // LD (HL), C
-		z.writeByte(z.getHL(), z.C); return 7
+		z.writeByte(z.getHL(), z.C)
+		return 7
 	case 0x72: // LD (HL), D
-		z.writeByte(z.getHL(), z.D); return 7
+		z.writeByte(z.getHL(), z.D)
+		return 7
 	case 0x73: // LD (HL), E
-		z.writeByte(z.getHL(), z.E); return 7
+		z.writeByte(z.getHL(), z.E)
+		return 7
 	case 0x74: // LD (HL), H
-		z.writeByte(z.getHL(), z.H); return 7
+		z.writeByte(z.getHL(), z.H)
+		return 7
 	case 0x75: // LD (HL), L
-		z.writeByte(z.getHL(), z.L); return 7
+		z.writeByte(z.getHL(), z.L)
+		return 7
 	case 0x76: // HALT
 		z.HALT = true
 		z.PC--
 		return 4
 	case 0x77: // LD (HL), A
-		z.writeByte(z.getHL(), z.A); return 7
+		z.writeByte(z.getHL(), z.A)
+		return 7
 	case 0x78:
-		z.A = z.B; return 4
+		z.A = z.B
+		return 4
 	case 0x79:
-		z.A = z.C; return 4
+		z.A = z.C
+		return 4
 	case 0x7A:
-		z.A = z.D; return 4
+		z.A = z.D
+		return 4
 	case 0x7B:
-		z.A = z.E; return 4
+		z.A = z.E
+		return 4
 	case 0x7C:
-		z.A = z.H; return 4
+		z.A = z.H
+		return 4
 	case 0x7D:
-		z.A = z.L; return 4
+		z.A = z.L
+		return 4
 	case 0x7E: // LD A, (HL)
-		z.A = z.readByte(z.getHL()); return 7
+		z.A = z.readByte(z.getHL())
+		return 7
 	case 0x7F: // LD A, A - NOP-like
 		return 4
 
 	// ALU group (0x80-0xBF)
 	case 0x80:
-		z.add8(z.B); return 4
+		z.add8(z.B)
+		return 4
 	case 0x81:
-		z.add8(z.C); return 4
+		z.add8(z.C)
+		return 4
 	case 0x82:
-		z.add8(z.D); return 4
+		z.add8(z.D)
+		return 4
 	case 0x83:
-		z.add8(z.E); return 4
+		z.add8(z.E)
+		return 4
 	case 0x84:
-		z.add8(z.H); return 4
+		z.add8(z.H)
+		return 4
 	case 0x85:
-		z.add8(z.L); return 4
+		z.add8(z.L)
+		return 4
 	case 0x86: // ADD A, (HL)
-		z.add8(z.readByte(z.getHL())); return 7
+		z.add8(z.readByte(z.getHL()))
+		return 7
 	case 0x87:
-		z.add8(z.A); return 4
+		z.add8(z.A)
+		return 4
 	case 0x88:
-		z.adc8(z.B); return 4
+		z.adc8(z.B)
+		return 4
 	case 0x89:
-		z.adc8(z.C); return 4
+		z.adc8(z.C)
+		return 4
 	case 0x8A:
-		z.adc8(z.D); return 4
+		z.adc8(z.D)
+		return 4
 	case 0x8B:
-		z.adc8(z.E); return 4
+		z.adc8(z.E)
+		return 4
 	case 0x8C:
-		z.adc8(z.H); return 4
+		z.adc8(z.H)
+		return 4
 	case 0x8D:
-		z.adc8(z.L); return 4
+		z.adc8(z.L)
+		return 4
 	case 0x8E: // ADC A, (HL)
-		z.adc8(z.readByte(z.getHL())); return 7
+		z.adc8(z.readByte(z.getHL()))
+		return 7
 	case 0x8F:
-		z.adc8(z.A); return 4
+		z.adc8(z.A)
+		return 4
 	case 0x90:
-		z.sub8(z.B); return 4
+		z.sub8(z.B)
+		return 4
 	case 0x91:
-		z.sub8(z.C); return 4
+		z.sub8(z.C)
+		return 4
 	case 0x92:
-		z.sub8(z.D); return 4
+		z.sub8(z.D)
+		return 4
 	case 0x93:
-		z.sub8(z.E); return 4
+		z.sub8(z.E)
+		return 4
 	case 0x94:
-		z.sub8(z.H); return 4
+		z.sub8(z.H)
+		return 4
 	case 0x95:
-		z.sub8(z.L); return 4
+		z.sub8(z.L)
+		return 4
 	case 0x96: // SUB (HL)
-		z.sub8(z.readByte(z.getHL())); return 7
+		z.sub8(z.readByte(z.getHL()))
+		return 7
 	case 0x97:
-		z.sub8(z.A); return 4
+		z.sub8(z.A)
+		return 4
 	case 0x98:
-		z.sbc8(z.B); return 4
+		z.sbc8(z.B)
+		return 4
 	case 0x99:
-		z.sbc8(z.C); return 4
+		z.sbc8(z.C)
+		return 4
 	case 0x9A:
-		z.sbc8(z.D); return 4
+		z.sbc8(z.D)
+		return 4
 	case 0x9B:
-		z.sbc8(z.E); return 4
+		z.sbc8(z.E)
+		return 4
 	case 0x9C:
-		z.sbc8(z.H); return 4
+		z.sbc8(z.H)
+		return 4
 	case 0x9D:
-		z.sbc8(z.L); return 4
+		z.sbc8(z.L)
+		return 4
 	case 0x9E: // SBC A, (HL)
-		z.sbc8(z.readByte(z.getHL())); return 7
+		z.sbc8(z.readByte(z.getHL()))
+		return 7
 	case 0x9F:
-		z.sbc8(z.A); return 4
+		z.sbc8(z.A)
+		return 4
 	case 0xA0:
-		z.and8(z.B); return 4
+		z.and8(z.B)
+		return 4
 	case 0xA1:
-		z.and8(z.C); return 4
+		z.and8(z.C)
+		return 4
 	case 0xA2:
-		z.and8(z.D); return 4
+		z.and8(z.D)
+		return 4
 	case 0xA3:
-		z.and8(z.E); return 4
+		z.and8(z.E)
+		return 4
 	case 0xA4:
-		z.and8(z.H); return 4
+		z.and8(z.H)
+		return 4
 	case 0xA5:
-		z.and8(z.L); return 4
+		z.and8(z.L)
+		return 4
 	case 0xA6: // AND (HL)
-		z.and8(z.readByte(z.getHL())); return 7
+		z.and8(z.readByte(z.getHL()))
+		return 7
 	case 0xA7:
-		z.and8(z.A); return 4
+		z.and8(z.A)
+		return 4
 	case 0xA8:
-		z.xor8(z.B); return 4
+		z.xor8(z.B)
+		return 4
 	case 0xA9:
-		z.xor8(z.C); return 4
+		z.xor8(z.C)
+		return 4
 	case 0xAA:
-		z.xor8(z.D); return 4
+		z.xor8(z.D)
+		return 4
 	case 0xAB:
-		z.xor8(z.E); return 4
+		z.xor8(z.E)
+		return 4
 	case 0xAC:
-		z.xor8(z.H); return 4
+		z.xor8(z.H)
+		return 4
 	case 0xAD:
-		z.xor8(z.L); return 4
+		z.xor8(z.L)
+		return 4
 	case 0xAE: // XOR (HL)
-		z.xor8(z.readByte(z.getHL())); return 7
+		z.xor8(z.readByte(z.getHL()))
+		return 7
 	case 0xAF:
-		z.xor8(z.A); return 4
+		z.xor8(z.A)
+		return 4
 	case 0xB0:
-		z.or8(z.B); return 4
+		z.or8(z.B)
+		return 4
 	case 0xB1:
-		z.or8(z.C); return 4
+		z.or8(z.C)
+		return 4
 	case 0xB2:
-		z.or8(z.D); return 4
+		z.or8(z.D)
+		return 4
 	case 0xB3:
-		z.or8(z.E); return 4
+		z.or8(z.E)
+		return 4
 	case 0xB4:
-		z.or8(z.H); return 4
+		z.or8(z.H)
+		return 4
 	case 0xB5:
-		z.or8(z.L); return 4
+		z.or8(z.L)
+		return 4
 	case 0xB6: // OR (HL)
-		z.or8(z.readByte(z.getHL())); return 7
+		z.or8(z.readByte(z.getHL()))
+		return 7
 	case 0xB7:
-		z.or8(z.A); return 4
+		z.or8(z.A)
+		return 4
 	case 0xB8:
-		z.cp8(z.B); return 4
+		z.cp8(z.B)
+		return 4
 	case 0xB9:
-		z.cp8(z.C); return 4
+		z.cp8(z.C)
+		return 4
 	case 0xBA:
-		z.cp8(z.D); return 4
+		z.cp8(z.D)
+		return 4
 	case 0xBB:
-		z.cp8(z.E); return 4
+		z.cp8(z.E)
+		return 4
 	case 0xBC:
-		z.cp8(z.H); return 4
+		z.cp8(z.H)
+		return 4
 	case 0xBD:
-		z.cp8(z.L); return 4
+		z.cp8(z.L)
+		return 4
 	case 0xBE: // CP (HL)
-		z.cp8(z.readByte(z.getHL())); return 7
+		z.cp8(z.readByte(z.getHL()))
+		return 7
 	case 0xBF:
-		z.cp8(z.A); return 4
+		z.cp8(z.A)
+		return 4
 
 	// RET cc
 	case 0xC0: // RET NZ
 		if !z.getFlag(FLAG_Z) {
-			z.PC = z.pop(); z.MEMPTR = z.PC; return 11
+			z.PC = z.pop()
+			z.MEMPTR = z.PC
+			return 11
 		}
 		return 5
 	case 0xC1: // POP BC
-		z.setBC(z.pop()); return 10
+		z.setBC(z.pop())
+		return 10
 	case 0xC2: // JP NZ, nn
-		addr := z.readImmediateWord(); z.MEMPTR = addr
+		addr := z.readImmediateWord()
+		z.MEMPTR = addr
 		if !z.getFlag(FLAG_Z) {
-			z.PC = addr; return 10
+			z.PC = addr
+			return 10
 		}
 		return 10
 	case 0xC3: // JP nn
 		addr := z.readImmediateWord()
-		z.MEMPTR = addr; z.PC = addr
+		z.MEMPTR = addr
+		z.PC = addr
 		return 10
 	case 0xC4: // CALL NZ, nn
-		addr := z.readImmediateWord(); z.MEMPTR = addr
+		addr := z.readImmediateWord()
+		z.MEMPTR = addr
 		if !z.getFlag(FLAG_Z) {
-			z.push(z.PC); z.PC = addr; return 17
+			z.push(z.PC)
+			z.PC = addr
+			return 17
 		}
 		return 10
 	case 0xC5: // PUSH BC
-		z.push(z.getBC()); return 11
+		z.push(z.getBC())
+		return 11
 	case 0xC6: // ADD A, n
-		z.add8(z.readImmediateByte()); return 7
+		z.add8(z.readImmediateByte())
+		return 7
 	case 0xC7: // RST 00H
-		z.push(z.PC); z.PC = 0x0000; z.MEMPTR = 0x0000; return 11
+		z.push(z.PC)
+		z.PC = 0x0000
+		z.MEMPTR = 0x0000
+		return 11
 	case 0xC8: // RET Z
 		if z.getFlag(FLAG_Z) {
-			z.PC = z.pop(); z.MEMPTR = z.PC; return 11
+			z.PC = z.pop()
+			z.MEMPTR = z.PC
+			return 11
 		}
 		return 5
 	case 0xC9: // RET
-		z.PC = z.pop(); z.MEMPTR = z.PC; return 10
+		z.PC = z.pop()
+		z.MEMPTR = z.PC
+		return 10
 	case 0xCA: // JP Z, nn
-		addr := z.readImmediateWord(); z.MEMPTR = addr
+		addr := z.readImmediateWord()
+		z.MEMPTR = addr
 		if z.getFlag(FLAG_Z) {
-			z.PC = addr; return 10
+			z.PC = addr
+			return 10
 		}
 		return 10
 	// 0xCB: handled in ExecuteOneInstruction
 	case 0xCB:
 		return 0
 	case 0xCC: // CALL Z, nn
-		addr := z.readImmediateWord(); z.MEMPTR = addr
+		addr := z.readImmediateWord()
+		z.MEMPTR = addr
 		if z.getFlag(FLAG_Z) {
-			z.push(z.PC); z.PC = addr; return 17
+			z.push(z.PC)
+			z.PC = addr
+			return 17
 		}
 		return 10
 	case 0xCD: // CALL nn
 		addr := z.readImmediateWord()
-		z.push(z.PC); z.PC = addr; z.MEMPTR = addr
+		z.push(z.PC)
+		z.PC = addr
+		z.MEMPTR = addr
 		return 17
 	case 0xCE: // ADC A, n
-		z.adc8(z.readImmediateByte()); return 7
+		z.adc8(z.readImmediateByte())
+		return 7
 	case 0xCF: // RST 08H
-		z.push(z.PC); z.PC = 0x0008; z.MEMPTR = 0x0008; return 11
+		z.push(z.PC)
+		z.PC = 0x0008
+		z.MEMPTR = 0x0008
+		return 11
 
 	case 0xD0: // RET NC
 		if !z.getFlag(FLAG_C) {
-			z.PC = z.pop(); z.MEMPTR = z.PC; return 11
+			z.PC = z.pop()
+			z.MEMPTR = z.PC
+			return 11
 		}
 		return 5
 	case 0xD1: // POP DE
-		z.setDE(z.pop()); return 10
+		z.setDE(z.pop())
+		return 10
 	case 0xD2: // JP NC, nn
-		addr := z.readImmediateWord(); z.MEMPTR = addr
+		addr := z.readImmediateWord()
+		z.MEMPTR = addr
 		if !z.getFlag(FLAG_C) {
-			z.PC = addr; return 10
+			z.PC = addr
+			return 10
 		}
 		return 10
 	case 0xD3: // OUT (n), A
@@ -605,31 +759,47 @@ func (z *Z80) executeOpcode(opcode uint8) int {
 		z.MEMPTR = (uint16(z.A) << 8) | uint16((n+1)&0xFF)
 		return 11
 	case 0xD4: // CALL NC, nn
-		addr := z.readImmediateWord(); z.MEMPTR = addr
+		addr := z.readImmediateWord()
+		z.MEMPTR = addr
 		if !z.getFlag(FLAG_C) {
-			z.push(z.PC); z.PC = addr; return 17
+			z.push(z.PC)
+			z.PC = addr
+			return 17
 		}
 		return 10
 	case 0xD5: // PUSH DE
-		z.push(z.getDE()); return 11
+		z.push(z.getDE())
+		return 11
 	case 0xD6: // SUB n
-		z.sub8(z.readImmediateByte()); return 7
+		z.sub8(z.readImmediateByte())
+		return 7
 	case 0xD7: // RST 10H
-		z.push(z.PC); z.PC = 0x0010; z.MEMPTR = 0x0010; return 11
+		z.push(z.PC)
+		z.PC = 0x0010
+		z.MEMPTR = 0x0010
+		return 11
 	case 0xD8: // RET C
 		if z.getFlag(FLAG_C) {
-			z.PC = z.pop(); z.MEMPTR = z.PC; return 11
+			z.PC = z.pop()
+			z.MEMPTR = z.PC
+			return 11
 		}
 		return 5
 	case 0xD9: // EXX
 		tempBC, tempDE, tempHL := z.getBC(), z.getDE(), z.getHL()
-		z.setBC(z.getBC_()); z.setDE(z.getDE_()); z.setHL(z.getHL_())
-		z.setBC_(tempBC); z.setDE_(tempDE); z.setHL_(tempHL)
+		z.setBC(z.getBC_())
+		z.setDE(z.getDE_())
+		z.setHL(z.getHL_())
+		z.setBC_(tempBC)
+		z.setDE_(tempDE)
+		z.setHL_(tempHL)
 		return 4
 	case 0xDA: // JP C, nn
-		addr := z.readImmediateWord(); z.MEMPTR = addr
+		addr := z.readImmediateWord()
+		z.MEMPTR = addr
 		if z.getFlag(FLAG_C) {
-			z.PC = addr; return 10
+			z.PC = addr
+			return 10
 		}
 		return 10
 	case 0xDB: // IN A, (n)
@@ -641,30 +811,42 @@ func (z *Z80) executeOpcode(opcode uint8) int {
 		z.MEMPTR = port + 1
 		return 11
 	case 0xDC: // CALL C, nn
-		addr := z.readImmediateWord(); z.MEMPTR = addr
+		addr := z.readImmediateWord()
+		z.MEMPTR = addr
 		if z.getFlag(FLAG_C) {
-			z.push(z.PC); z.PC = addr; return 17
+			z.push(z.PC)
+			z.PC = addr
+			return 17
 		}
 		return 10
 	// 0xDD: handled in ExecuteOneInstruction
 	case 0xDD:
 		return 0
 	case 0xDE: // SBC A, n
-		z.sbc8(z.readImmediateByte()); return 7
+		z.sbc8(z.readImmediateByte())
+		return 7
 	case 0xDF: // RST 18H
-		z.push(z.PC); z.PC = 0x0018; z.MEMPTR = 0x0018; return 11
+		z.push(z.PC)
+		z.PC = 0x0018
+		z.MEMPTR = 0x0018
+		return 11
 
 	case 0xE0: // RET PO
 		if !z.getFlag(FLAG_PV) {
-			z.PC = z.pop(); z.MEMPTR = z.PC; return 11
+			z.PC = z.pop()
+			z.MEMPTR = z.PC
+			return 11
 		}
 		return 5
 	case 0xE1: // POP HL
-		z.setHL(z.pop()); return 10
+		z.setHL(z.pop())
+		return 10
 	case 0xE2: // JP PO, nn
-		addr := z.readImmediateWord(); z.MEMPTR = addr
+		addr := z.readImmediateWord()
+		z.MEMPTR = addr
 		if !z.getFlag(FLAG_PV) {
-			z.PC = addr; return 10
+			z.PC = addr
+			return 10
 		}
 		return 10
 	case 0xE3: // EX (SP), HL
@@ -674,28 +856,41 @@ func (z *Z80) executeOpcode(opcode uint8) int {
 		z.MEMPTR = temp
 		return 19
 	case 0xE4: // CALL PO, nn
-		addr := z.readImmediateWord(); z.MEMPTR = addr
+		addr := z.readImmediateWord()
+		z.MEMPTR = addr
 		if !z.getFlag(FLAG_PV) {
-			z.push(z.PC); z.PC = addr; return 17
+			z.push(z.PC)
+			z.PC = addr
+			return 17
 		}
 		return 10
 	case 0xE5: // PUSH HL
-		z.push(z.getHL()); return 11
+		z.push(z.getHL())
+		return 11
 	case 0xE6: // AND n
-		z.and8(z.readImmediateByte()); return 7
+		z.and8(z.readImmediateByte())
+		return 7
 	case 0xE7: // RST 20H
-		z.push(z.PC); z.PC = 0x0020; z.MEMPTR = 0x0020; return 11
+		z.push(z.PC)
+		z.PC = 0x0020
+		z.MEMPTR = 0x0020
+		return 11
 	case 0xE8: // RET PE
 		if z.getFlag(FLAG_PV) {
-			z.PC = z.pop(); z.MEMPTR = z.PC; return 11
+			z.PC = z.pop()
+			z.MEMPTR = z.PC
+			return 11
 		}
 		return 5
 	case 0xE9: // JP (HL)
-		z.PC = z.getHL(); return 4
+		z.PC = z.getHL()
+		return 4
 	case 0xEA: // JP PE, nn
-		addr := z.readImmediateWord(); z.MEMPTR = addr
+		addr := z.readImmediateWord()
+		z.MEMPTR = addr
 		if z.getFlag(FLAG_PV) {
-			z.PC = addr; return 10
+			z.PC = addr
+			return 10
 		}
 		return 10
 	case 0xEB: // EX DE, HL
@@ -704,57 +899,84 @@ func (z *Z80) executeOpcode(opcode uint8) int {
 		z.setHL(tempDE)
 		return 4
 	case 0xEC: // CALL PE, nn
-		addr := z.readImmediateWord(); z.MEMPTR = addr
+		addr := z.readImmediateWord()
+		z.MEMPTR = addr
 		if z.getFlag(FLAG_PV) {
-			z.push(z.PC); z.PC = addr; return 17
+			z.push(z.PC)
+			z.PC = addr
+			return 17
 		}
 		return 10
 	// 0xED: handled in ExecuteOneInstruction
 	case 0xED:
 		return 0
 	case 0xEE: // XOR n
-		z.xor8(z.readImmediateByte()); return 7
+		z.xor8(z.readImmediateByte())
+		return 7
 	case 0xEF: // RST 28H
-		z.push(z.PC); z.PC = 0x0028; z.MEMPTR = 0x0028; return 11
+		z.push(z.PC)
+		z.PC = 0x0028
+		z.MEMPTR = 0x0028
+		return 11
 
 	case 0xF0: // RET P
 		if !z.getFlag(FLAG_S) {
-			z.PC = z.pop(); z.MEMPTR = z.PC; return 11
+			z.PC = z.pop()
+			z.MEMPTR = z.PC
+			return 11
 		}
 		return 5
 	case 0xF1: // POP AF
-		z.setAF(z.pop()); return 10
+		z.setAF(z.pop())
+		return 10
 	case 0xF2: // JP P, nn
-		addr := z.readImmediateWord(); z.MEMPTR = addr
+		addr := z.readImmediateWord()
+		z.MEMPTR = addr
 		if !z.getFlag(FLAG_S) {
-			z.PC = addr; return 10
+			z.PC = addr
+			return 10
 		}
 		return 10
 	case 0xF3: // DI
-		z.IFF1 = false; z.IFF2 = false; return 4
+		z.IFF1 = false
+		z.IFF2 = false
+		return 4
 	case 0xF4: // CALL P, nn
-		addr := z.readImmediateWord(); z.MEMPTR = addr
+		addr := z.readImmediateWord()
+		z.MEMPTR = addr
 		if !z.getFlag(FLAG_S) {
-			z.push(z.PC); z.PC = addr; return 17
+			z.push(z.PC)
+			z.PC = addr
+			return 17
 		}
 		return 10
 	case 0xF5: // PUSH AF
-		z.push(z.getAF()); return 11
+		z.push(z.getAF())
+		return 11
 	case 0xF6: // OR n
-		z.or8(z.readImmediateByte()); return 7
+		z.or8(z.readImmediateByte())
+		return 7
 	case 0xF7: // RST 30H
-		z.push(z.PC); z.PC = 0x0030; z.MEMPTR = 0x0030; return 11
+		z.push(z.PC)
+		z.PC = 0x0030
+		z.MEMPTR = 0x0030
+		return 11
 	case 0xF8: // RET M
 		if z.getFlag(FLAG_S) {
-			z.PC = z.pop(); z.MEMPTR = z.PC; return 11
+			z.PC = z.pop()
+			z.MEMPTR = z.PC
+			return 11
 		}
 		return 5
 	case 0xF9: // LD SP, HL
-		z.SP = z.getHL(); return 6
+		z.SP = z.getHL()
+		return 6
 	case 0xFA: // JP M, nn
-		addr := z.readImmediateWord(); z.MEMPTR = addr
+		addr := z.readImmediateWord()
+		z.MEMPTR = addr
 		if z.getFlag(FLAG_S) {
-			z.PC = addr; return 10
+			z.PC = addr
+			return 10
 		}
 		return 10
 	case 0xFB: // EI -- set IFF immediately, but interrupt is blocked for 1 instruction
@@ -763,18 +985,25 @@ func (z *Z80) executeOpcode(opcode uint8) int {
 		z.eipending = true // block interrupt until after next instruction
 		return 4
 	case 0xFC: // CALL M, nn
-		addr := z.readImmediateWord(); z.MEMPTR = addr
+		addr := z.readImmediateWord()
+		z.MEMPTR = addr
 		if z.getFlag(FLAG_S) {
-			z.push(z.PC); z.PC = addr; return 17
+			z.push(z.PC)
+			z.PC = addr
+			return 17
 		}
 		return 10
 	// 0xFD: handled in ExecuteOneInstruction
 	case 0xFD:
 		return 0
 	case 0xFE: // CP n
-		z.cp8(z.readImmediateByte()); return 7
+		z.cp8(z.readImmediateByte())
+		return 7
 	case 0xFF: // RST 38H
-		z.push(z.PC); z.PC = 0x0038; z.MEMPTR = 0x0038; return 11
+		z.push(z.PC)
+		z.PC = 0x0038
+		z.MEMPTR = 0x0038
+		return 11
 	default:
 		panic(fmt.Sprintf("unexpected opcode 0x%02X at PC=0x%04X", opcode, z.PC-1))
 	}

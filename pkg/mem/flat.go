@@ -1,6 +1,10 @@
 package mem
 
-import "github.com/kiltum/zxgo-v3/pkg/model"
+import (
+	"fmt"
+
+	"github.com/kiltum/zxgo-v3/pkg/model"
+)
 
 // flatMapper is a flat 64KB RAM mapper for bare-metal test programs (ZEXALL,
 // the Fuse instruction tests). It has no ROM/RAM banking, no paging and no
@@ -33,7 +37,7 @@ func (f *flatMapper) SetROMWritable(w bool) { f.romWrite = w }
 func (f *flatMapper) IsContended(uint16) bool {
 	return false
 }
-func (f *flatMapper) GetBank(int) []byte { return nil }
+func (f *flatMapper) GetBank(int) []byte  { return nil }
 func (f *flatMapper) SetBank(int, []byte) {}
 
 func (f *flatMapper) Snapshot() [][]byte {
@@ -51,6 +55,23 @@ func (f *flatMapper) RestoreSnapshot(banks [][]byte) {
 			copy(f.mem[i*16384:(i+1)*16384], banks[i])
 		}
 	}
+}
+
+// NumRAMBanks returns 4: the flat 64K is exposed as four 16K banks so the
+// snapshot path has something to iterate.
+func (f *flatMapper) NumRAMBanks() int { return 4 }
+
+// PagingState is empty: this mapper has no banking and no paging port at all.
+// It exists for the bare-metal CPU tests, which never see a state file.
+func (f *flatMapper) PagingState() PagingState { return PagingState{} }
+
+// RestorePagingState accepts only the empty state, so a real machine's paging
+// state cannot be applied to a mapper that has nowhere to put it.
+func (f *flatMapper) RestorePagingState(s PagingState) error {
+	if s.Scheme != "" || len(s.Blob) != 0 || s.Write7FFD != 0 {
+		return fmt.Errorf("flat mapper cannot restore paging scheme %q", s.Scheme)
+	}
+	return nil
 }
 
 var _ MemoryMapper = (*flatMapper)(nil)

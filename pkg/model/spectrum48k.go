@@ -2,6 +2,7 @@ package model
 
 // Spectrum48K defines the original ZX Spectrum 48K.
 var Spectrum48K = Config{
+	Key:         "48k",
 	Name:        "ZX Spectrum 48K",
 	Description: "Original 1982 model, 48K RAM",
 

@@ -148,39 +148,38 @@ func TestStandard128_Reset(t *testing.T) {
 	}
 }
 
-func TestStandard128_Snapshot(t *testing.T) {
+func TestStandard128_Encode(t *testing.T) {
 	s := NewStandard128(nil)
 	s.activeROM = 1
 	s.ramBankSlot3 = 3
 	s.shadowScreen = true
 	s.pagingLocked = true
+	s.previousROM = 4
 
-	snap := s.Snapshot()
-	s128snap, ok := snap.(*standard128Snapshot)
-	if !ok {
-		t.Fatal("Snapshot() returned wrong type")
-	}
+	blob := s.Encode()
 
-	if s128snap.ActiveROM != 1 {
-		t.Errorf("snapshot.ActiveROM = %d, want 1", s128snap.ActiveROM)
-	}
-	if s128snap.RAMBankSlot3 != 3 {
-		t.Errorf("snapshot.RAMBankSlot3 = %d, want 3", s128snap.RAMBankSlot3)
-	}
-	if !s128snap.ShadowScreen {
-		t.Error("snapshot.ShadowScreen should be true")
-	}
-	if !s128snap.PagingLocked {
-		t.Error("snapshot.PagingLocked should be true")
-	}
-
-	// Restore to new instance
 	s2 := NewStandard128(nil)
-	err := s2.Restore(snap)
-	if err != nil {
-		t.Fatalf("Restore() error = %v", err)
+	if err := s2.Decode(blob); err != nil {
+		t.Fatalf("Decode() error = %v", err)
 	}
-	if s2.activeROM != 1 || s2.ramBankSlot3 != 3 || !s2.shadowScreen || !s2.pagingLocked {
-		t.Error("Restore() did not restore state correctly")
+	if s2.activeROM != 1 || s2.ramBankSlot3 != 3 || !s2.shadowScreen || !s2.pagingLocked || s2.previousROM != 4 {
+		t.Errorf("Decode() gave activeROM=%d slot3=%d shadow=%v locked=%v previous=%d",
+			s2.activeROM, s2.ramBankSlot3, s2.shadowScreen, s2.pagingLocked, s2.previousROM)
+	}
+
+	// A truncated blob must leave the scheme as it was.
+	s3 := NewStandard128(nil)
+	s3.ramBankSlot3 = 6
+	if err := s3.Decode(blob[:3]); err == nil {
+		t.Error("Decode() accepted a truncated blob")
+	}
+	if s3.ramBankSlot3 != 6 {
+		t.Errorf("a failed Decode changed state: slot3 = %d, want 6", s3.ramBankSlot3)
+	}
+
+	// Pentagon512 shares the encoding but is a different scheme, so the name in
+	// the enclosing paging state is what keeps the two apart.
+	if NewPentagon512(nil).Name() == s.Name() {
+		t.Error("Pentagon512 and Standard128 report the same scheme name")
 	}
 }

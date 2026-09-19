@@ -5,6 +5,7 @@ package model
 //
 //	ROM_128_0 (bank 0), ROM_128_1/ROM_SOS (bank 1), ROM_48 (bank 2), ROM_SYS (bank 3), ROM_DOS (bank 4)
 var Spectrum128K = Config{
+	Key:         "128k",
 	Name:        "ZX Spectrum 128K",
 	Description: "1985 Toastrack model, 128K RAM, AY-3-8912",
 

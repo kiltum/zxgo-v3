@@ -2,6 +2,7 @@ package sound
 
 import (
 	"github.com/kiltum/zxgo-v3/pkg/io_ports"
+	"github.com/kiltum/zxgo-v3/pkg/state"
 )
 
 // AY8912 emulates the AY-3-8912 PSG fitted to the 128K / +2 / +3 Spectrums.
@@ -54,10 +55,10 @@ type AY8912 struct {
 	noiseReg    uint32 // 17-bit LFSR
 	noiseOut    bool
 
-	envPeriod uint32 // EP, 16 bits, 0 read as 1
-	envCount  int64
-	envVolume uint8
-	envShape  uint8
+	envPeriod    uint32 // EP, 16 bits, 0 read as 1
+	envCount     int64
+	envVolume    uint8
+	envShape     uint8
 	envHold      bool
 	envAlternate bool
 	envAttack    bool
@@ -206,6 +207,11 @@ func (ay *AY8912) SetVolume(vol uint16) {
 // next instruction are timestamped at that instruction's start -- the same
 // contract Beeper.SetTick has.
 func (ay *AY8912) SetTick(t int64) { ay.tick = t }
+
+// ChunkID names the chunk a single AY-8912 is written as. The three chips the
+// emulator can hold are mutually exclusive, so the id in a file says which one
+// wrote it.
+func (ay *AY8912) ChunkID() state.ID { return state.IDAY }
 
 // --- io_ports.PortHandler ---
 

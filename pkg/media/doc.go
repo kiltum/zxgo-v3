@@ -10,6 +10,7 @@
 //   - +3 DOS: uPD765 controller with .DSK format
 //
 // Architecture:
-//   Tape interface -> TAP/TZX parsers -> bitstream -> Playback -> ULA.SetAudioState()
-//   Disk interface -> TRD/SCL/DSK parsers -> Disk -> BetaDiskController/WD1793
+//
+//	Tape interface -> TAP/TZX parsers -> bitstream -> Playback -> ULA.SetAudioState()
+//	Disk interface -> TRD/SCL/DSK parsers -> Disk -> BetaDiskController/WD1793
 package media

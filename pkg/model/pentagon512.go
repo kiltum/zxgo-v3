@@ -4,6 +4,7 @@ package model
 // the Pentagon 128, but with 32 RAM banks (512K) selected by a 5-bit page via
 // port 0x7FFD (see pkg/mem/banking.Pentagon512).
 var Pentagon512 = Config{
+	Key:         "pentagon512",
 	Name:        "Pentagon 512",
 	Description: "Pentagon 512K clone, 512K RAM, AY-3-8912",
 

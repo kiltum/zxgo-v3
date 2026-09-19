@@ -54,9 +54,18 @@ type BankingScheme interface {
 	// Reset resets paging state to defaults
 	Reset()
 
-	// Snapshot exports paging state for snapshots
-	Snapshot() interface{}
+	// Encode returns the scheme's paging state as bytes for the native state
+	// format (STATE_DESIGN.md). Name is the discriminator: a blob written by one
+	// scheme is refused by another, which is what keeps the 128K's 3-bit page
+	// from being read as the Pentagon 512's 5-bit one.
+	//
+	// This is the only form of the paging state that is serialised. An earlier
+	// Snapshot/Restore pair handed an unexported struct to a caller in the same
+	// process; it was never called outside its own test, and two serialisations
+	// of one state is how the two drift apart, so it is gone.
+	Encode() []byte
 
-	// Restore imports paging state from snapshots
-	Restore(state interface{}) error
+	// Decode applies a blob from Encode. It parses the whole blob before
+	// assigning anything, so a short or corrupt one leaves the scheme as it was.
+	Decode(blob []byte) error
 }

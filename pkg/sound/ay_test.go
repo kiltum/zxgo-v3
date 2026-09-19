@@ -14,8 +14,8 @@ func abs(n int32) int32 {
 }
 
 const (
-	ayCPUHz   = 3546900
-	ayChipHz  = ayCPUHz / 2
+	ayCPUHz    = 3546900
+	ayChipHz   = ayCPUHz / 2
 	aySampleHz = 44100
 )
 

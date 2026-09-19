@@ -1,13 +1,22 @@
 package sound
 
-import "github.com/kiltum/zxgo-v3/pkg/io_ports"
+import (
+	"github.com/kiltum/zxgo-v3/pkg/io_ports"
+	"github.com/kiltum/zxgo-v3/pkg/state"
+)
 
 // AYChip is the interface the emulator uses for the AY sound source: a single
-// AY-3-8912 or a TurboSound pair. Both implement Source, PortHandler and the
-// lifecycle methods, so the mixer and port bus treat them identically.
+// AY-8912, a TurboSound pair or a TurboSound FM pair. All implement Source,
+// PortHandler, the lifecycle methods and the state contract, so the mixer, the
+// port bus and the state coordinator treat them identically.
+//
+// state.Identified is what lets the emulator save whichever chip the model has
+// without knowing which one it is: the chip reports the chunk it is written as,
+// because the three carry different payloads.
 type AYChip interface {
 	Source
 	io_ports.PortHandler
+	state.Identified
 	SetTick(int64)
 	Reset()
 	SetClockFrequency(uint32)
@@ -37,6 +46,9 @@ func (t *TurboSound) SetClockFrequency(hz uint32) {
 	t.ay1.SetClockFrequency(hz)
 	t.ay2.SetClockFrequency(hz)
 }
+
+// ChunkID names the chunk a TurboSound pair is written as.
+func (t *TurboSound) ChunkID() state.ID { return state.IDTurboSound }
 
 // --- io_ports.PortHandler ---
 

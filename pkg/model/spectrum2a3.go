@@ -4,6 +4,7 @@ package model
 // Supports 4 ROM banks: +2A uses 2 ROMs, +3 uses 4 ROMs
 // Uses dual-port paging (0x7FFD + 0x1FFD) vs single-port 128K (0x7FFD only)
 var Spectrum2A3 = Config{
+	Key:         "2a3",
 	Name:        "ZX Spectrum +2A/+3",
 	Description: "1987+2A model, 128K RAM, dual-port paging, extended disk support",
 

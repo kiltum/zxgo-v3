@@ -54,8 +54,8 @@ type GS struct {
 	// granularity and turn the music into noise). cur is the head index of the
 	// first unconsumed event; consumed events are reclaimed lazily in recordMix
 	// (not on every sample, which was O(n^2)).
-	events       []gsEvent
-	cur          int
+	events        []gsEvent
+	cur           int
 	resolvedLeft  int16
 	resolvedRight int16
 }
@@ -150,7 +150,7 @@ func (g *GS) WriteMemory(addr uint16, value uint8) {
 	g.mem[base+int(addr)%blockSize] = value
 }
 
-func (g *GS) ReadIO(port uint16) uint8  { return g.gsReadPort(byte(port) & 0x0F) }
+func (g *GS) ReadIO(port uint16) uint8         { return g.gsReadPort(byte(port) & 0x0F) }
 func (g *GS) WriteIO(port uint16, value uint8) { g.gsWritePort(byte(port)&0x0F, value) }
 
 // gsReadPort handles the GS Z80's own I/O ports (low 4 bits).

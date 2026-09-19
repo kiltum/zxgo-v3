@@ -4,6 +4,7 @@ import (
 	"math"
 
 	"github.com/kiltum/zxgo-v3/pkg/io_ports"
+	"github.com/kiltum/zxgo-v3/pkg/state"
 )
 
 // YM2203 (OPN) FM synthesizer -- the "TurboSound FM" sound chip. It has three
@@ -259,10 +260,10 @@ type YM2203 struct {
 	cpuFreq    int
 	sampleRate int
 
-	fracAcc     int64 // tick->sample conversion remainder
-	lastOut     int32
-	curTick     int64 // CPU tick, refreshed by SetTick before each instruction
-	busyUntil   int64 // CPU tick until which the busy flag (status bit 7) is set
+	fracAcc   int64 // tick->sample conversion remainder
+	lastOut   int32
+	curTick   int64 // CPU tick, refreshed by SetTick before each instruction
+	busyUntil int64 // CPU tick until which the busy flag (status bit 7) is set
 }
 
 // YMClock is the YM2203 master clock in Hz. The TFM programmer manual
@@ -282,6 +283,11 @@ func NewYM2203(fmClock float64) *YM2203 {
 	y.updateEGTimer()
 	return y
 }
+
+// ChunkID names the chunk a single YM2203 is written as. The emulator holds its
+// FM chip as a TurboSound FM board, so this id is for the chip on its own; the
+// board has its own.
+func (y *YM2203) ChunkID() state.ID { return state.IDYM2203 }
 
 func (y *YM2203) SetCPUClock(hz int) {
 	if hz > 0 {

@@ -13,10 +13,10 @@ import (
 // last two bytes -- start sector and start track -- are not in the SCL and get
 // filled in when the file is placed on the disk.
 type SCLEntry struct {
-	Filename    [8]byte // File name (8 characters)
-	FileType    byte    // File type
-	Params      [4]byte // Start address word, then length-in-bytes word
-	LengthSect  byte    // Length in sectors (offset 13)
+	Filename   [8]byte // File name (8 characters)
+	FileType   byte    // File type
+	Params     [4]byte // Start address word, then length-in-bytes word
+	LengthSect byte    // Length in sectors (offset 13)
 }
 
 // SCLHeader represents the SCL file header
@@ -37,12 +37,12 @@ func NewSCLEntry(trdEntry TRDOSFileEntry) SCLEntry {
 // ToTRDOSFileEntry converts SCL entry to TR-DOS file entry
 func (e SCLEntry) ToTRDOSFileEntry() TRDOSFileEntry {
 	return TRDOSFileEntry{
-		Filename:       e.Filename,
-		FileType:       e.FileType,
-		StartAddress:   0, // Will be set by caller
-		Length:         uint16(e.LengthSect) * 256,
-		StartSector:    0, // Will be set by caller
-		StartTrack:     0,  // Will be set by caller
+		Filename:     e.Filename,
+		FileType:     e.FileType,
+		StartAddress: 0, // Will be set by caller
+		Length:       uint16(e.LengthSect) * 256,
+		StartSector:  0, // Will be set by caller
+		StartTrack:   0, // Will be set by caller
 	}
 }
 

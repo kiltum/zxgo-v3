@@ -10,10 +10,10 @@ import (
 // IMPORTANT: MGT/IMG formats use 512-byte sectors (not 256 like TR-DOS!)
 
 const (
-	imgSectorSize     = 512  // IMG format uses 512-byte sectors (not 256!)
-	imgTracksPerSide   = 80   // Tracks per side for Disciple/+D
-	imgSides           = 2    // Double-sided disks
-	imgSectorsPerTrack = 10   // Disciple/+D sectors per track
+	imgSectorSize      = 512                         // IMG format uses 512-byte sectors (not 256!)
+	imgTracksPerSide   = 80                          // Tracks per side for Disciple/+D
+	imgSides           = 2                           // Double-sided disks
+	imgSectorsPerTrack = 10                          // Disciple/+D sectors per track
 	imgTotalTracks     = imgTracksPerSide * imgSides // Total tracks in IMG format
 )
 
@@ -30,7 +30,7 @@ func LoadIMG(r io.Reader) (*Disk, error) {
 
 	// Check if file size matches expected format (within tolerance)
 	minSize := imgTotalTracks * imgSectorsPerTrack * imgSectorSize / 4 // Allow quarter-size minimum
-	maxSize := expectedSize * 2 // Allow double-size for extended formats
+	maxSize := expectedSize * 2                                        // Allow double-size for extended formats
 
 	if len(data) < minSize {
 		return nil, fmt.Errorf("IMG file too short: expected at least %d bytes, got %d", minSize, len(data))

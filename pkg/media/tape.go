@@ -15,18 +15,18 @@ type Pulse struct {
 
 // Block represents a decoded tape block with its data and timing.
 type Block struct {
-	Data      []byte  // Raw block data
-	Flag      uint8   // 0x00=header, 0xFF=data
-	BlockType uint8   // Header type (0-7) if flag==0x00
+	Data      []byte // Raw block data
+	Flag      uint8  // 0x00=header, 0xFF=data
+	BlockType uint8  // Header type (0-7) if flag==0x00
 }
 
 // Tape represents a complete tape (TAP/TZX file) as a sequence of pulses.
 // The pulse stream drives the EAR bit through port 0xFE bit 6.
 type Tape struct {
 	FileName string
-	Format   string   // "TAP" or "TZX"
-	Pulses   []Pulse  // Ordered sequence of pulses (the bitstream)
-	Blocks   []Block  // Decoded data blocks (for inspection/debugging)
+	Format   string  // "TAP" or "TZX"
+	Pulses   []Pulse // Ordered sequence of pulses (the bitstream)
+	Blocks   []Block // Decoded data blocks (for inspection/debugging)
 }
 
 // Playback handles tape playback state and synchronization with CPU T-states.
@@ -46,9 +46,9 @@ func NewPlayback(tape *Tape) *Playback {
 		Tape:        tape,
 		Pos:         0,
 		Active:      false,
-		TapeTick:    0,  // Tape starts at position 0
-		NextTick:    0,  // Will be set when first pulse starts
-		LastCPUTick: 0,  // Track delta for timing
+		TapeTick:    0,     // Tape starts at position 0
+		NextTick:    0,     // Will be set when first pulse starts
+		LastCPUTick: 0,     // Track delta for timing
 		EndNotified: false, // Track if we've notified tape ended
 	}
 	return pb
@@ -85,13 +85,13 @@ func (pb *Playback) CurrentLevel(currentTick int64) bool {
 	}
 
 	if pb.Pos >= len(pb.Tape.Pulses) {
-			if pb.Active && !pb.EndNotified {
-				// Auto-stop playback when tape ends
-				pb.Active = false
-				pb.EndNotified = true
-			}
-			return true // End of tape: EAR floats high
+		if pb.Active && !pb.EndNotified {
+			// Auto-stop playback when tape ends
+			pb.Active = false
+			pb.EndNotified = true
 		}
+		return true // End of tape: EAR floats high
+	}
 
 	return pb.Tape.Pulses[pb.Pos].Level
 }
@@ -111,7 +111,7 @@ func (pb *Playback) Reset() {
 func (pb *Playback) Play() {
 	pb.Active = true
 	// Reset timing to state as-if we're starting fresh
-	pb.LastCPUTick = -1        // Special value to indicate "not yet started"
+	pb.LastCPUTick = -1 // Special value to indicate "not yet started"
 	// Don't reset Pos/TapeTick/NextTick - tape position preserves
 }
 
@@ -152,7 +152,7 @@ const (
 	TapSyncPulse2 = 735
 
 	// Data bit pulses
-	TapBit0Pulse = 855 // ~4115 Hz (both pulses)
+	TapBit0Pulse = 855  // ~4115 Hz (both pulses)
 	TapBit1Pulse = 1710 // ~2057 Hz (both pulses)
 
 	// Leader length from zxcpp (critical for ROM timing synchronization):

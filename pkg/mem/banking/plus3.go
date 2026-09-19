@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/kiltum/zxgo-v3/pkg/model"
+	"github.com/kiltum/zxgo-v3/pkg/state"
 )
 
 // Plus3 implements the ZX Spectrum +2A/+3 banking scheme.
@@ -187,45 +188,46 @@ func (s *Plus3) Reset() {
 	s.previousROM = defaultROM
 }
 
-type plus3Snapshot struct {
-	ActiveROM    int
-	RAMBankSlot3 int
-	ShadowScreen bool
-	PagingLocked bool
-	SpecialMode  bool
-	SpecialWhich int
-	ROMBit0      int
-	ROMBit1      int
-	PreviousROM  int
+// Encode writes the paging state for the native state format. The +2A/+3 has
+// more of it than the 128K: the special paging mode and the two ROM select bits
+// are separate fields, and the active ROM is derived from them.
+func (s *Plus3) Encode() []byte {
+	e := state.NewEncoder()
+	e.I64(int64(s.activeROM))
+	e.I64(int64(s.ramBankSlot3))
+	e.Bool(s.shadowScreen)
+	e.Bool(s.pagingLocked)
+	e.Bool(s.specialMode)
+	e.I64(int64(s.specialWhich))
+	e.I64(int64(s.romBit0))
+	e.I64(int64(s.romBit1))
+	e.I64(int64(s.previousROM))
+	return e.Payload()
 }
 
-func (s *Plus3) Snapshot() interface{} {
-	return &plus3Snapshot{
-		ActiveROM:    s.activeROM,
-		RAMBankSlot3: s.ramBankSlot3,
-		ShadowScreen: s.shadowScreen,
-		PagingLocked: s.pagingLocked,
-		SpecialMode:  s.specialMode,
-		SpecialWhich: s.specialWhich,
-		ROMBit0:      s.romBit0,
-		ROMBit1:      s.romBit1,
-		PreviousROM:  s.previousROM,
+// Decode applies a blob from Encode, parsing it all before assigning.
+func (s *Plus3) Decode(blob []byte) error {
+	d := state.NewDecoder(blob, 0)
+	activeROM := int(d.I64())
+	ramBankSlot3 := int(d.I64())
+	shadowScreen := d.Bool()
+	pagingLocked := d.Bool()
+	specialMode := d.Bool()
+	specialWhich := int(d.I64())
+	romBit0 := int(d.I64())
+	romBit1 := int(d.I64())
+	previousROM := int(d.I64())
+	if err := d.Err(); err != nil {
+		return fmt.Errorf("plus3 paging: %w", err)
 	}
-}
-
-func (s *Plus3) Restore(state interface{}) error {
-	snap, ok := state.(*plus3Snapshot)
-	if !ok {
-		return fmt.Errorf("invalid snapshot type for Plus3")
-	}
-	s.activeROM = snap.ActiveROM
-	s.ramBankSlot3 = snap.RAMBankSlot3
-	s.shadowScreen = snap.ShadowScreen
-	s.pagingLocked = snap.PagingLocked
-	s.specialMode = snap.SpecialMode
-	s.specialWhich = snap.SpecialWhich
-	s.romBit0 = snap.ROMBit0
-	s.romBit1 = snap.ROMBit1
-	s.previousROM = snap.PreviousROM
+	s.activeROM = activeROM
+	s.ramBankSlot3 = ramBankSlot3
+	s.shadowScreen = shadowScreen
+	s.pagingLocked = pagingLocked
+	s.specialMode = specialMode
+	s.specialWhich = specialWhich
+	s.romBit0 = romBit0
+	s.romBit1 = romBit1
+	s.previousROM = previousROM
 	return nil
 }

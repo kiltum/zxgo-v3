@@ -122,7 +122,6 @@ func (z *Z80) cbSet(bit uint8, reg uint8) int {
 	return 8
 }
 
-
 // readReg8 reads an 8-bit register by index (0=B,1=C,2=D,3=E,4=H,5=L,6=(HL),7=A).
 func (z *Z80) readReg8(reg uint8) uint8 {
 	switch reg {

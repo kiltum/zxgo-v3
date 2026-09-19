@@ -4,6 +4,7 @@
 package emulator
 
 import (
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -71,6 +72,10 @@ type Emulator struct {
 	// keyboard; the player injects at instruction boundaries in step().
 	recorder *replay.Recorder
 	player   *replay.Player
+
+	// tapeResult is what the last state load did with the tape it referred to
+	// (state_media.go). It is a report, not machine state: a save never reads it.
+	tapeResult *TapeInfo
 }
 
 // CPU returns the Z80 for debugger access.
@@ -97,6 +102,9 @@ func (e *Emulator) AudioOut() sound.AudioOutput { return e.audioOut }
 // ModelConfig returns the model configuration.
 func (e *Emulator) ModelConfig() model.Config { return e.cfg }
 
+// GS returns the General Sound card, or nil when the machine has none.
+func (e *Emulator) GS() *gs.GS { return e.gs }
+
 // Kempston returns the Kempston joystick.
 func (e *Emulator) Kempston() *io_ports.Kempston { return e.kempston }
 
@@ -104,12 +112,11 @@ func (e *Emulator) Kempston() *io_ports.Kempston { return e.kempston }
 // other models use the Beta Disk controller (WD1793).
 func (e *Emulator) LoadDisk(disk *media.Disk) error {
 	if e.cfg.PagingModel == "2a3" {
+		// The controller is built with the machine (see NewWithLayout), so this
+		// only has to put the disk in it.
 		if e.upd765 == nil {
-			e.upd765 = media.NewUPD765()
-			e.portBus.Register(e.upd765)
+			return fmt.Errorf("this machine has no floppy controller")
 		}
-		e.upd765.SetClockHz(e.cpuHz)
-		e.upd765.SetNoTiming(e.cfg.NoFDCTiming)
 		e.upd765.MountDisk(disk)
 		return nil
 	}

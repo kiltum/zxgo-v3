@@ -13,6 +13,7 @@ package model
 // derived from ClockEndFrame. Paging and the Beta Disk follow the standard 128K
 // layout.
 var Pentagon128 = Config{
+	Key:         "pentagon",
 	Name:        "Pentagon 128",
 	Description: "1991 Russian Pentagon 128K clone, 128K RAM, AY-3-8912",
 

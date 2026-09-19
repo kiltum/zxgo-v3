@@ -99,9 +99,9 @@ type UPD765 struct {
 	// polls the MSR), the real FDC raises ST1 overrun and terminates the data
 	// phase. dataDeadline is the tick by which the whole phase must complete,
 	// armed when the read-data phase starts.
-	curTick      int64
+	curTick       int64
 	dataReadyTick int64 // tick at which the target sector is under the head (RQM rises)
-	dataDeadline int64
+	dataDeadline  int64
 
 	// cpuHz is the emulator's T-state clock, used to convert the seek step rate
 	// to T-states. seekPending marks an in-progress SEEK/RECALIBRATE;
@@ -220,6 +220,10 @@ func (u *UPD765) MountDiskToDrive(disk *Disk, drive int) {
 		u.disk = disk
 	}
 }
+
+// Drives returns the disk in each drive, nil where none is mounted. The slice is
+// freshly built, so a caller may keep it.
+func (u *UPD765) Drives() []*Disk { return []*Disk{u.disk, u.diskB} }
 
 // curDisk returns the disk selected by the current drive (US bits).
 func (u *UPD765) curDisk() *Disk {

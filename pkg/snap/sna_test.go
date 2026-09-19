@@ -11,25 +11,25 @@ func TestLoadSNAHeaderMinimal(t *testing.T) {
 	data := make([]byte, 49179)
 
 	// Set some register values
-	data[0] = 0x3F          // I register
-	data[1] = 0x01          // HL' low
-	data[2] = 0x00          // HL' high
-	binaryWrite16(data[1:3], 0x0001) // HL'
-	binaryWrite16(data[3:5], 0x0002) // DE'
-	binaryWrite16(data[5:7], 0x0003) // BC'
-	binaryWrite16(data[7:9], 0x0004) // AF'
-	binaryWrite16(data[9:11], 0x0005) // HL
+	data[0] = 0x3F                     // I register
+	data[1] = 0x01                     // HL' low
+	data[2] = 0x00                     // HL' high
+	binaryWrite16(data[1:3], 0x0001)   // HL'
+	binaryWrite16(data[3:5], 0x0002)   // DE'
+	binaryWrite16(data[5:7], 0x0003)   // BC'
+	binaryWrite16(data[7:9], 0x0004)   // AF'
+	binaryWrite16(data[9:11], 0x0005)  // HL
 	binaryWrite16(data[11:13], 0x0006) // DE
 	binaryWrite16(data[13:15], 0x0007) // BC
 	binaryWrite16(data[15:17], 0x0008) // IY
 	binaryWrite16(data[17:19], 0x0009) // IX
-	data[19] = 0x04        // IFF2 (bit 2 = 1)
-	data[20] = 0x7F        // R register
+	data[19] = 0x04                    // IFF2 (bit 2 = 1)
+	data[20] = 0x7F                    // R register
 	binaryWrite16(data[21:23], 0xE000) // SP
-	data[23] = 0x01        // IM=0, Border=1
-	data[24] = 0x01        // A register
-	data[25] = 0x44        // F register
-	data[26] = 0x00        // R bit 7
+	data[23] = 0x01                    // IM=0, Border=1
+	data[24] = 0x01                    // A register
+	data[25] = 0x44                    // F register
+	data[26] = 0x00                    // R bit 7
 
 	r := bytes.NewReader(data)
 	snap, err := LoadSNA(r)
@@ -167,21 +167,21 @@ func TestSNARoundTrip(t *testing.T) {
 func TestGetRegisterValue(t *testing.T) {
 	snap := &Snapshot{
 		Header: SNAHeader{
-			A:    0x12,
-			F:    0x34,
-			HL:   0x1234,
-			BC:   0x5678,
-			DE:   0x9ABC,
-			HL_:  0x1111,
-			DE_:  0x2222,
-			BC_:  0x3333,
-			AF_:  0x4444,
-			I:    0x3F,
-			R:    0x7F,
-			IX:   0x5555,
-			IY:   0x6666,
-			SP:   0xE000,
-			IM:   0x01,
+			A:      0x12,
+			F:      0x34,
+			HL:     0x1234,
+			BC:     0x5678,
+			DE:     0x9ABC,
+			HL_:    0x1111,
+			DE_:    0x2222,
+			BC_:    0x3333,
+			AF_:    0x4444,
+			I:      0x3F,
+			R:      0x7F,
+			IX:     0x5555,
+			IY:     0x6666,
+			SP:     0xE000,
+			IM:     0x01,
 			Border: 0x02,
 		},
 		RAM: make([]byte, 49152),
@@ -245,27 +245,27 @@ func TestGetRegisterValue(t *testing.T) {
 func TestSetRegisterValue(t *testing.T) {
 	snap := &Snapshot{
 		Header: SNAHeader{
-			A:    0x12,
-			F:    0x34,
-			HL:   0x1234,
-			BC:   0x5678,
-			DE:   0x9ABC,
-			I:    0x3F,
-			R:    0x7F,
-			IX:   0x5555,
-			IY:   0x6666,
-			SP:   0xE000,
-			IM:   0x01,
+			A:      0x12,
+			F:      0x34,
+			HL:     0x1234,
+			BC:     0x5678,
+			DE:     0x9ABC,
+			I:      0x3F,
+			R:      0x7F,
+			IX:     0x5555,
+			IY:     0x6666,
+			SP:     0xE000,
+			IM:     0x01,
 			Border: 0x02,
 		},
 		RAM: make([]byte, 49152),
 	}
 
 	tests := []struct {
-		name     string
-		register string
-		value    uint16
-		expected uint16
+		name      string
+		register  string
+		value     uint16
+		expected  uint16
 		shouldErr bool
 	}{
 		{"Set A", "A", 0xFF, 0xFF, false},
@@ -326,8 +326,8 @@ func TestGetRAMSetRAM(t *testing.T) {
 
 	// Test valid addresses
 	tests := []struct {
-		addr     uint16
-		value    byte
+		addr  uint16
+		value byte
 	}{
 		{0x4000, 0xAA},
 		{0x8000, 0xBB},

@@ -10,11 +10,11 @@ import (
 // IMPORTANT: MGT/IMG formats use 512-byte sectors (not 256 like TR-DOS!)
 
 const (
-	mgtSectorSize   = 512  // MGT format uses 512-byte sectors (not 256!)
-	mgtTracksPerSide  = 80   // Tracks per side for Disciple/+D
-	mgtSides          = 2    // Double-sided disks
-	mgtSectorsPerTrack = 10   // Disciple/+D sectors per track
-	mgtTotalTracks    = mgtTracksPerSide * mgtSides // Total tracks in MGT format
+	mgtSectorSize      = 512                         // MGT format uses 512-byte sectors (not 256!)
+	mgtTracksPerSide   = 80                          // Tracks per side for Disciple/+D
+	mgtSides           = 2                           // Double-sided disks
+	mgtSectorsPerTrack = 10                          // Disciple/+D sectors per track
+	mgtTotalTracks     = mgtTracksPerSide * mgtSides // Total tracks in MGT format
 )
 
 // LoadMGT loads a MGT format disk image (Disciple/+D)
@@ -30,7 +30,7 @@ func LoadMGT(r io.Reader) (*Disk, error) {
 
 	// Check if file size matches expected format (within tolerance)
 	minSize := mgtTotalTracks * mgtSectorsPerTrack * mgtSectorSize / 2 // Allow half-size (single-sided)
-	maxSize := expectedSize + 4096 // Allow some tolerance
+	maxSize := expectedSize + 4096                                     // Allow some tolerance
 
 	if len(data) < minSize {
 		return nil, fmt.Errorf("MGT file too short: expected at least %d bytes, got %d", minSize, len(data))

@@ -11,6 +11,14 @@ const ScreenLines = 192
 // Config is a pure-data description of a ZX Spectrum model.
 // Components read this to configure their behaviour -- no if/else spaghetti.
 type Config struct {
+	// Key is this model's entry in AllModels ("pentagon512"). It is the
+	// machine's identity, distinct from Name (the display string "Pentagon
+	// 512"): a state file and a replay both record the key, and a key that does
+	// not match the running machine is what makes a foreign session refuse to
+	// load. A test in this package keeps every Config's Key equal to its
+	// AllModels entry, so the two cannot drift apart.
+	Key string
+
 	Name        string // e.g. "ZX Spectrum 128K"
 	Description string
 

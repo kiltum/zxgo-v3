@@ -46,6 +46,13 @@ type MemoryMapper interface {
 	// RestoreSnapshot restores all RAM banks from a snapshot.
 	RestoreSnapshot(banks [][]byte)
 
+	// NumRAMBanks returns how many RAM banks this mapper has. The state
+	// container validates a file's bank count against it before allocating
+	// anything, and it is the mapper - not the model - that knows: the generic
+	// mapper allocates eight for every machine and the scheme decides how many
+	// of them are real.
+	NumRAMBanks() int
+
 	// SetROMWritable enables/disables writes to ROM area (0x0000-0x3FFF).
 	// Used during ROM loading and test setup.
 	SetROMWritable(writable bool)
@@ -62,4 +69,34 @@ type MemoryMapper interface {
 	// SetBank allows direct writing to a RAM bank (needed for snapshots).
 	// For 48K models this is a no-op as they use a flat memory model.
 	SetBank(bank int, data []byte)
+
+	// PagingState returns the banking state for the native state format
+	// (STATE_DESIGN.md). The mapper owns it rather than each mapper exposing a
+	// scheme object: the scheme's encoding is not something a caller outside
+	// this package can produce, but internal/emulator has to be able to store
+	// it.
+	PagingState() PagingState
+
+	// RestorePagingState applies a PagingState. A scheme that is not this
+	// mapper's own is refused rather than interpreted, so a 128K blob cannot be
+	// read as a Pentagon 512 page.
+	RestorePagingState(PagingState) error
+}
+
+// PagingState is a machine's banking state in the form the state container
+// stores it.
+//
+// Scheme is the discriminator and Blob is that scheme's own encoding, so the
+// container never has to understand any of it. Write7FFD is carried alongside
+// rather than inside because it belongs to the mapper, not to a scheme: it is
+// the last byte *written* to 0x7FFD, which the paging lock makes unrecoverable
+// from the effective state, and which is what an SNA written from a restored
+// machine would store.
+//
+// The paging lock bit is deliberately not a field here either: it is inside the
+// scheme's blob, where the scheme that has one puts it.
+type PagingState struct {
+	Scheme    string
+	Blob      []byte
+	Write7FFD uint8
 }

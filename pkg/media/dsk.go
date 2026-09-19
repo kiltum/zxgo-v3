@@ -14,8 +14,8 @@ const (
 	// DSK Headers - based on the actual DSK_specs.txt format
 	normalDSKHeader   = "MV - CPCEMU Disk-File\r\n" // Standard header for normal DSK files
 	extendedDSKHeader = "EXTENDED CPC DSK File\r\n" // Standard header for extended DSK files
-	dskInfoHeader     = "Disk-Info\r\n"            // Disk information block identifier
-	trackInfoHeader   = "Track-Info\r\n"           // Track information block identifier
+	dskInfoHeader     = "Disk-Info\r\n"             // Disk information block identifier
+	trackInfoHeader   = "Track-Info\r\n"            // Track information block identifier
 
 	// DSK Sector size shifts (1=256, 2=512, 3=1024, etc.)
 	dskSectorShift256  = 1
@@ -29,38 +29,38 @@ const (
 
 // DSKHeader represents the DSK disk information block
 type DSKHeader struct {
-	Signature     [34]byte // "MV - CPCEMU Disk-File\r\n" or "EXTENDED CPC DSK File\r\n" + "Disk-Info\r\n"
-	Creator       [14]byte // Creator name
-	Tracks        uint8    // Number of tracks
-	Sides         uint8    // Number of sides
-	TrackSize     uint16   // Track size in bytes (normal format only)
-	TrackSizes    []uint16 // Per-track sizes (extended format only)
-	IsExtended    bool     // True for extended format
+	Signature  [34]byte // "MV - CPCEMU Disk-File\r\n" or "EXTENDED CPC DSK File\r\n" + "Disk-Info\r\n"
+	Creator    [14]byte // Creator name
+	Tracks     uint8    // Number of tracks
+	Sides      uint8    // Number of sides
+	TrackSize  uint16   // Track size in bytes (normal format only)
+	TrackSizes []uint16 // Per-track sizes (extended format only)
+	IsExtended bool     // True for extended format
 }
 
 // DSKTrackInfo represents the track information block
 type DSKTrackInfo struct {
-	Signature     [12]byte // "Track-Info\r\n"
-	Unused        [4]byte
-	TrackNumber   uint8
-	SideNumber    uint8
-	Unused2       [2]byte
-	SectorSize    uint8    // Sector size shift (1=256, 2=512, 3=1024, etc.)
-	SectorCount   uint8    // Number of sectors
-	Gap3Length    uint8    // Gap 3 length
-	FillerByte    uint8    // Filler byte
-	SectorList    []DSKSectorInfo // Sector information list
+	Signature   [12]byte // "Track-Info\r\n"
+	Unused      [4]byte
+	TrackNumber uint8
+	SideNumber  uint8
+	Unused2     [2]byte
+	SectorSize  uint8           // Sector size shift (1=256, 2=512, 3=1024, etc.)
+	SectorCount uint8           // Number of sectors
+	Gap3Length  uint8           // Gap 3 length
+	FillerByte  uint8           // Filler byte
+	SectorList  []DSKSectorInfo // Sector information list
 }
 
 // DSKSectorInfo represents sector information in the track list
 type DSKSectorInfo struct {
-	Track        uint8 // Track number (C parameter in uPD765 FDC)
-	Side         uint8 // Side number (H parameter in uPD765 FDC)
-	SectorID     uint8 // Sector ID (R parameter in uPD765 FDC)
-	SectorSize   uint8 // Sector size shift (N parameter in uPD765 FDC)
-	StatusReg1   uint8 // uPD765 status register 1 after reading
-	StatusReg2   uint8 // uPD765 status register 2 after reading
-	DataLength   uint16 // Actual data length (extended format only, 0 for normal)
+	Track      uint8  // Track number (C parameter in uPD765 FDC)
+	Side       uint8  // Side number (H parameter in uPD765 FDC)
+	SectorID   uint8  // Sector ID (R parameter in uPD765 FDC)
+	SectorSize uint8  // Sector size shift (N parameter in uPD765 FDC)
+	StatusReg1 uint8  // uPD765 status register 1 after reading
+	StatusReg2 uint8  // uPD765 status register 2 after reading
+	DataLength uint16 // Actual data length (extended format only, 0 for normal)
 }
 
 // LoadDSK loads a DSK format disk image (+3 DOS)
@@ -340,7 +340,7 @@ func parseDSKTrackInfo(data []byte, offset int) (*DSKTrackInfo, error) {
 	trackInfo.TrackNumber = data[offset+16]
 	trackInfo.SideNumber = data[offset+17]
 	trackInfo.SectorSize = data[offset+20]  // Sector size shift
-	trackInfo.SectorCount = data[offset+21]  // Number of sectors
+	trackInfo.SectorCount = data[offset+21] // Number of sectors
 	trackInfo.Gap3Length = data[offset+22]
 	trackInfo.FillerByte = data[offset+23]
 

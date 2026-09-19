@@ -22,6 +22,7 @@ import (
 	"github.com/kiltum/zxgo-v3/pkg/replay"
 	"github.com/kiltum/zxgo-v3/pkg/snap"
 	"github.com/kiltum/zxgo-v3/pkg/sound/sdl3"
+	"github.com/kiltum/zxgo-v3/pkg/state"
 	"github.com/kiltum/zxgo-v3/pkg/ula"
 )
 
@@ -46,6 +47,9 @@ func main() {
 	snowFlag := flag.Bool("snow", false, "enable the 48K snow artefact (ULA/CPU data-bus conflict; noisy)")
 	replayFlag := flag.String("replay", "", "path to a .replay file to play back; its machine and switches are used")
 	saveReplayFlag := flag.String("save-replay", "", "path to write a .replay recording of this session on exit")
+	loadStateFlag := flag.String("load-state", "", "path to a .zxstate session to resume from")
+	saveStateFlag := flag.String("save-state", "", "path to write a .zxstate session on exit")
+	sessionFlag := flag.String("session", "", "path to a .zxstate session: resumed if it exists, written on exit")
 	flag.Parse()
 
 	// A replay is read before the machine is built: it carries the model and the
@@ -194,6 +198,36 @@ func main() {
 
 	emu.Reset()
 
+	// A session is resumed before anything the command line names, so a -tap,
+	// -disk or -sna given as well replaces what the session had rather than
+	// being replaced by it. That is the precedence a replay already uses: the
+	// command line wins, and the file fills in the rest.
+	//
+	// The file may name another model, be corrupt, or not be there at all. None
+	// of those is fatal - the machine starts clean and says so - because a
+	// session is a convenience and refusing to boot would make a stale file
+	// worse than no file.
+	if statePath := statePathFor(*loadStateFlag, *sessionFlag); statePath != "" {
+		switch {
+		case *saveReplayFlag != "":
+			// The recording's event times are stamped against a timeline this
+			// machine never ran, so resuming would produce a replay that lies.
+			fmt.Fprintf(os.Stderr,
+				"zxgo-v3: not resuming %s: a replay is being recorded (-save-replay)\n", statePath)
+		default:
+			info, err := emu.LoadSession(statePath)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "zxgo-v3: not resuming %s: %v\n", statePath, err)
+			} else {
+				fmt.Printf("zxgo-v3: %s\n", info)
+				if info.Result != nil && len(info.Result.Skipped) > 0 {
+					fmt.Printf("zxgo-v3: %d unknown chunk(s) in the session were skipped\n",
+						len(info.Result.Skipped))
+				}
+			}
+		}
+	}
+
 	// The media comes from the command line when it was given there, and from
 	// the replay otherwise: a session that was recorded with a tape needs that
 	// tape back, or the keys that typed LOAD "" land on a machine with nothing
@@ -235,6 +269,21 @@ func main() {
 		defer func() {
 			if err := saveSnapshot(emu, *saveSnaFlag); err != nil {
 				fmt.Fprintf(os.Stderr, "Failed to save SNA snapshot: %v\n", err)
+			}
+		}()
+	}
+
+	// The session is written on the way out, which is the same graceful-exit
+	// path the replay recording uses: the loop returns on the window closing or
+	// on an interrupt, and the deferred saves run. It is written deflated: RAM
+	// and a mostly empty disk compress well, and a session is not a file anyone
+	// reads in an editor.
+	if statePath := statePathFor(*saveStateFlag, *sessionFlag); statePath != "" {
+		defer func() {
+			if err := emu.SaveSession(statePath, state.Options{Deflate: true}); err != nil {
+				fmt.Fprintf(os.Stderr, "Failed to save session: %v\n", err)
+			} else {
+				fmt.Printf("Session saved: %s\n", statePath)
 			}
 		}()
 	}
@@ -382,6 +431,16 @@ func toggleTapePlayback(emu *emulator.Emulator) (playing bool, ok bool) {
 // has a zero value that means "not asked for", but a replay file can say yes
 // where the default says no, and "the user asked for 128k" has to be
 // distinguishable from "the user did not mention the model".
+// statePathFor resolves the path a session is read from or written to. An
+// explicit -load-state or -save-state is that half's path and wins; -session
+// supplies both halves at once. Empty means the half was not asked for.
+func statePathFor(explicit, session string) string {
+	if explicit != "" {
+		return explicit
+	}
+	return session
+}
+
 func flagWasSet(name string) bool {
 	set := false
 	flag.Visit(func(f *flag.Flag) {

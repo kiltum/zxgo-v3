@@ -11,8 +11,8 @@ func TestGSMemoryMapping(t *testing.T) {
 	g := New(3500000)
 
 	rom := make([]byte, romSize)
-	rom[0] = 0xAA                 // ROM[0] byte 0
-	rom[blockSize] = 0xBB         // ROM[1] byte 0
+	rom[0] = 0xAA         // ROM[0] byte 0
+	rom[blockSize] = 0xBB // ROM[1] byte 0
 	if err := g.LoadROM(rom); err != nil {
 		t.Fatal(err)
 	}

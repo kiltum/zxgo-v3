@@ -355,7 +355,7 @@ func TestBetaDiskStepCommands(t *testing.T) {
 	ctrl.MountDisk(disk)
 
 	// Set initial track to 10 using Seek
-	ctrl.WritePort(0x7F, 10) // Data register to 10
+	ctrl.WritePort(0x7F, 10)         // Data register to 10
 	ctrl.WritePort(0x1F, byte(0x10)) // Seek: bit4=1, bit6=0, to track in data reg
 
 	if ctrl.GetTrack() != 10 {
@@ -388,9 +388,9 @@ func TestBetaDiskStepCommands(t *testing.T) {
 	}
 
 	// SEEK to track 79, then Step IN stays at 79 (capped at 85)
-	ctrl.WritePort(0x7F, 79)          // data reg = 79
-	ctrl.WritePort(0x1F, byte(0x10))  // Seek: reads data reg -> track=79
-	ctrl.WritePort(0x1F, byte(0x50))  // Step IN: 79->80
+	ctrl.WritePort(0x7F, 79)         // data reg = 79
+	ctrl.WritePort(0x1F, byte(0x10)) // Seek: reads data reg -> track=79
+	ctrl.WritePort(0x1F, byte(0x50)) // Step IN: 79->80
 	if ctrl.GetTrack() != 80 {
 		t.Errorf("Step-IN from 79: expected track 80, got %d", ctrl.GetTrack())
 	}

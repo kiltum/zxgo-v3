@@ -664,7 +664,7 @@ func appendDirectRecordingPulses(pulses []Pulse, sampleData []byte, tStatesPerSa
 	return pulses
 }
 
-/// Helper function for min
+// / Helper function for min
 func min(a, b int) int {
 	if a < b {
 		return a

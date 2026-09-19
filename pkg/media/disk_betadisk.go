@@ -319,6 +319,11 @@ func (c *BetaDiskController) MountDiskToDrive(disk *Disk, drive int) {
 }
 
 // ActiveDisk returns the currently selected drive's disk
+// Drives returns the disk in each of the four drives, nil where none is
+// mounted. The slice is the controller's own, so a caller must not modify it;
+// the state coordinator reads it to embed the mounted media in a session.
+func (c *BetaDiskController) Drives() []*Disk { return c.drives[:] }
+
 func (c *BetaDiskController) ActiveDisk() *Disk {
 	return c.drives[c.activeDrive]
 }

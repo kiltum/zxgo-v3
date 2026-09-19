@@ -125,27 +125,35 @@ func (z *Z80) executeIndexedOpcode(idx indexReg, opcode uint8) int {
 
 	// --- LD r, idxH / idxL / (idx+d) ---
 	case 0x44: // LD B, idxH
-		z.B = idx.High(); return 8
+		z.B = idx.High()
+		return 8
 	case 0x45: // LD B, idxL
-		z.B = idx.Low(); return 8
+		z.B = idx.Low()
+		return 8
 	case 0x46: // LD B, (idx+d)
 		return z.loadFromIndexed(idx, 0)
 	case 0x4C: // LD C, idxH
-		z.C = idx.High(); return 8
+		z.C = idx.High()
+		return 8
 	case 0x4D: // LD C, idxL
-		z.C = idx.Low(); return 8
+		z.C = idx.Low()
+		return 8
 	case 0x4E: // LD C, (idx+d)
 		return z.loadFromIndexed(idx, 1)
 	case 0x54: // LD D, idxH
-		z.D = idx.High(); return 8
+		z.D = idx.High()
+		return 8
 	case 0x55: // LD D, idxL
-		z.D = idx.Low(); return 8
+		z.D = idx.Low()
+		return 8
 	case 0x56: // LD D, (idx+d)
 		return z.loadFromIndexed(idx, 2)
 	case 0x5C: // LD E, idxH
-		z.E = idx.High(); return 8
+		z.E = idx.High()
+		return 8
 	case 0x5D: // LD E, idxL
-		z.E = idx.Low(); return 8
+		z.E = idx.Low()
+		return 8
 	case 0x5E: // LD E, (idx+d)
 		return z.loadFromIndexed(idx, 3)
 	case 0x66: // LD H, (idx+d)
@@ -153,43 +161,57 @@ func (z *Z80) executeIndexedOpcode(idx indexReg, opcode uint8) int {
 	case 0x6E: // LD L, (idx+d)
 		return z.loadFromIndexed(idx, 5)
 	case 0x7C: // LD A, idxH
-		z.A = idx.High(); return 8
+		z.A = idx.High()
+		return 8
 	case 0x7D: // LD A, idxL
-		z.A = idx.Low(); return 8
+		z.A = idx.Low()
+		return 8
 	case 0x7E: // LD A, (idx+d)
 		return z.loadFromIndexed(idx, 7)
 
 	// --- LD idxH, r ---
 	case 0x60: // LD idxH, B
-		idx.SetHigh(z.B); return 8
+		idx.SetHigh(z.B)
+		return 8
 	case 0x61: // LD idxH, C
-		idx.SetHigh(z.C); return 8
+		idx.SetHigh(z.C)
+		return 8
 	case 0x62: // LD idxH, D
-		idx.SetHigh(z.D); return 8
+		idx.SetHigh(z.D)
+		return 8
 	case 0x63: // LD idxH, E
-		idx.SetHigh(z.E); return 8
+		idx.SetHigh(z.E)
+		return 8
 	case 0x64: // LD idxH, idxH (NOP)
 		return 8
 	case 0x65: // LD idxH, idxL
-		idx.SetHigh(idx.Low()); return 8
+		idx.SetHigh(idx.Low())
+		return 8
 	case 0x67: // LD idxH, A
-		idx.SetHigh(z.A); return 8
+		idx.SetHigh(z.A)
+		return 8
 
 	// --- LD idxL, r ---
 	case 0x68: // LD idxL, B
-		idx.SetLow(z.B); return 8
+		idx.SetLow(z.B)
+		return 8
 	case 0x69: // LD idxL, C
-		idx.SetLow(z.C); return 8
+		idx.SetLow(z.C)
+		return 8
 	case 0x6A: // LD idxL, D
-		idx.SetLow(z.D); return 8
+		idx.SetLow(z.D)
+		return 8
 	case 0x6B: // LD idxL, E
-		idx.SetLow(z.E); return 8
+		idx.SetLow(z.E)
+		return 8
 	case 0x6C: // LD idxL, idxH
-		idx.SetLow(idx.High()); return 8
+		idx.SetLow(idx.High())
+		return 8
 	case 0x6D: // LD idxL, idxL (NOP)
 		return 8
 	case 0x6F: // LD idxL, A
-		idx.SetLow(z.A); return 8
+		idx.SetLow(z.A)
+		return 8
 
 	// --- LD (idx+d), r ---
 	case 0x70: // LD (idx+d), B
@@ -209,51 +231,67 @@ func (z *Z80) executeIndexedOpcode(idx indexReg, opcode uint8) int {
 
 	// --- ALU with idxH / idxL / (idx+d) ---
 	case 0x84: // ADD A, idxH
-		z.add8(idx.High()); return 8
+		z.add8(idx.High())
+		return 8
 	case 0x85: // ADD A, idxL
-		z.add8(idx.Low()); return 8
+		z.add8(idx.Low())
+		return 8
 	case 0x86: // ADD A, (idx+d)
 		return z.aluIndexed(idx, 0)
 	case 0x8C: // ADC A, idxH
-		z.adc8(idx.High()); return 8
+		z.adc8(idx.High())
+		return 8
 	case 0x8D: // ADC A, idxL
-		z.adc8(idx.Low()); return 8
+		z.adc8(idx.Low())
+		return 8
 	case 0x8E: // ADC A, (idx+d)
 		return z.aluIndexed(idx, 1)
 	case 0x94: // SUB idxH
-		z.sub8(idx.High()); return 8
+		z.sub8(idx.High())
+		return 8
 	case 0x95: // SUB idxL
-		z.sub8(idx.Low()); return 8
+		z.sub8(idx.Low())
+		return 8
 	case 0x96: // SUB (idx+d)
 		return z.aluIndexed(idx, 2)
 	case 0x9C: // SBC A, idxH
-		z.sbc8(idx.High()); return 8
+		z.sbc8(idx.High())
+		return 8
 	case 0x9D: // SBC A, idxL
-		z.sbc8(idx.Low()); return 8
+		z.sbc8(idx.Low())
+		return 8
 	case 0x9E: // SBC A, (idx+d)
 		return z.aluIndexed(idx, 3)
 	case 0xA4: // AND idxH
-		z.and8(idx.High()); return 8
+		z.and8(idx.High())
+		return 8
 	case 0xA5: // AND idxL
-		z.and8(idx.Low()); return 8
+		z.and8(idx.Low())
+		return 8
 	case 0xA6: // AND (idx+d)
 		return z.aluIndexed(idx, 4)
 	case 0xAC: // XOR idxH
-		z.xor8(idx.High()); return 8
+		z.xor8(idx.High())
+		return 8
 	case 0xAD: // XOR idxL
-		z.xor8(idx.Low()); return 8
+		z.xor8(idx.Low())
+		return 8
 	case 0xAE: // XOR (idx+d)
 		return z.aluIndexed(idx, 5)
 	case 0xB4: // OR idxH
-		z.or8(idx.High()); return 8
+		z.or8(idx.High())
+		return 8
 	case 0xB5: // OR idxL
-		z.or8(idx.Low()); return 8
+		z.or8(idx.Low())
+		return 8
 	case 0xB6: // OR (idx+d)
 		return z.aluIndexed(idx, 6)
 	case 0xBC: // CP idxH
-		z.cp8(idx.High()); return 8
+		z.cp8(idx.High())
+		return 8
 	case 0xBD: // CP idxL
-		z.cp8(idx.Low()); return 8
+		z.cp8(idx.Low())
+		return 8
 	case 0xBE: // CP (idx+d)
 		return z.aluIndexed(idx, 7)
 

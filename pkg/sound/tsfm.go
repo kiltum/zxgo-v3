@@ -1,6 +1,9 @@
 package sound
 
-import "github.com/kiltum/zxgo-v3/pkg/io_ports"
+import (
+	"github.com/kiltum/zxgo-v3/pkg/io_ports"
+	"github.com/kiltum/zxgo-v3/pkg/state"
+)
 
 // TSFM is the Turbo Sound FM board: two YM2203 (OPN) chips selected by the
 // NedoPC scheme (write 0xFF to 0xFFFD selects chip 0, 0xFE selects chip 1,
@@ -42,6 +45,11 @@ func (t *TSFM) SetTick(tick int64) {
 	t.chip0.SetTick(tick)
 	t.chip1.SetTick(tick)
 }
+
+// ChunkID names the chunk a TurboSound FM board is written as. It is the board's
+// own id, not the YM2203's: the payload wraps two chips where a single one's
+// does not.
+func (t *TSFM) ChunkID() state.ID { return state.IDTurboSoundFM }
 
 // --- io_ports.PortHandler ---
 

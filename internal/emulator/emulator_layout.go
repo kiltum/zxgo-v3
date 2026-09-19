@@ -124,6 +124,20 @@ func NewWithLayout(cfg model.Config, layout *model.ROMLayout, romsDir string, au
 	betaDisk.SetNoTiming(cfg.NoFDCTiming)
 	portBus.Register(betaDisk)
 
+	// The +2A/+3 has its floppy controller built in, so it exists whether or not
+	// a disk is mounted. It used to be created on the first mount, which made a
+	// machine that had not been given a disk behave as if it had no controller -
+	// and, once state files existed, left a restored session with nowhere to put
+	// the disk the file carried. A machine with no disk still has a controller
+	// that reports "no disk"; it does not have a hole where the ports should be.
+	var upd765 *media.UPD765
+	if cfg.PagingModel == "2a3" {
+		upd765 = media.NewUPD765()
+		upd765.SetClockHz(cpuHz)
+		upd765.SetNoTiming(cfg.NoFDCTiming)
+		portBus.Register(upd765)
+	}
+
 	emuBus := bus.NewDefaultBus(mapper, portBus)
 
 	trace := newTrace(65536)
@@ -163,6 +177,7 @@ func NewWithLayout(cfg model.Config, layout *model.ROMLayout, romsDir string, au
 		audioOut: audioOut,
 		cpuHz:    cpuHz,
 		betaDisk: betaDisk,
+		upd765:   upd765,
 		trace:    trace,
 	}, nil
 }
