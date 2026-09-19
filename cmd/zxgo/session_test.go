@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -35,6 +36,70 @@ func TestStatePathForPrecedence(t *testing.T) {
 				t.Errorf("statePathFor(%q, %q) = %q, want %q", tc.explicit, tc.session, got, tc.want)
 			}
 		})
+	}
+}
+
+// TestSavePathAddsTheExtension: a path that does not name the format gets the
+// extension appended, and one that already carries it (in any case) is left
+// alone rather than becoming "game.zxstate.zxstate".
+func TestSavePathAddsTheExtension(t *testing.T) {
+	for _, tc := range []struct {
+		in, ext, want string
+	}{
+		{"game", ".zxstate", "game.zxstate"},
+		{"game.zxstate", ".zxstate", "game.zxstate"},
+		{"game.ZXSTATE", ".zxstate", "game.ZXSTATE"},
+		{"dir/game", ".zxstate", "dir/game.zxstate"},
+		{"out.bin", ".zxstate", "out.bin.zxstate"},
+		{"session", ".replay", "session.replay"},
+		{"session.replay", ".replay", "session.replay"},
+		{"", ".zxstate", ""},
+	} {
+		if got := savePath(tc.in, tc.ext); got != tc.want {
+			t.Errorf("savePath(%q, %q) = %q, want %q", tc.in, tc.ext, got, tc.want)
+		}
+	}
+}
+
+// TestLoadPathPrefersTheNameGiven: a load reads the file the user named if it is
+// there, whatever it is called, and falls back to the suffixed name - which is
+// what a save would have written, so the two flags agree on one file.
+func TestLoadPathPrefersTheNameGiven(t *testing.T) {
+	dir := t.TempDir()
+
+	// Neither exists: the suffixed name is the one reported, because that is the
+	// name a save would have created and the name the user is looking for.
+	absent := filepath.Join(dir, "missing")
+	if got, want := loadPath(absent, ".zxstate"), absent+".zxstate"; got != want {
+		t.Errorf("loadPath(%q) = %q, want %q", absent, got, want)
+	}
+	if got, want := loadPath(absent+".zxstate", ".zxstate"), absent+".zxstate"; got != want {
+		t.Errorf("loadPath of a suffixed name = %q, want %q", got, want)
+	}
+
+	// Only the suffixed file exists: it is found from the bare name.
+	suffixed := filepath.Join(dir, "game.zxstate")
+	if err := os.WriteFile(suffixed, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := loadPath(filepath.Join(dir, "game"), ".zxstate"); got != suffixed {
+		t.Errorf("loadPath = %q, want %q", got, suffixed)
+	}
+
+	// A file that exists under the literal name wins, extension or not.
+	literal := filepath.Join(dir, "named")
+	if err := os.WriteFile(literal, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(literal+".zxstate", []byte("y"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := loadPath(literal, ".zxstate"); got != literal {
+		t.Errorf("loadPath = %q, want the file the user named (%q)", got, literal)
+	}
+
+	if got := loadPath("", ".zxstate"); got != "" {
+		t.Errorf("loadPath of an empty path = %q, want empty", got)
 	}
 }
 

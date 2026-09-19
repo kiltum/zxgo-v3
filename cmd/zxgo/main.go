@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -24,6 +25,14 @@ import (
 	"github.com/kiltum/zxgo-v3/pkg/sound/sdl3"
 	"github.com/kiltum/zxgo-v3/pkg/state"
 	"github.com/kiltum/zxgo-v3/pkg/ula"
+)
+
+// The extensions the path flags are named after. A path given without one gets
+// it appended on the way out and is looked for with it on the way in, so
+// "-session game" and "-session game.zxstate" are the same request.
+const (
+	stateExt  = ".zxstate"
+	replayExt = ".replay"
 )
 
 // SDL3's macOS Cocoa backend requires the first OS thread, so lock to it before
@@ -45,19 +54,20 @@ func main() {
 	fastTapeFlag := flag.Bool("fast-tape", false, "load tapes at full host speed: the speed throttle is off while the tape plays")
 	gsFlag := flag.Bool("gs", false, "enable the General Sound card (requires roms/gs105a.rom)")
 	snowFlag := flag.Bool("snow", false, "enable the 48K snow artefact (ULA/CPU data-bus conflict; noisy)")
-	replayFlag := flag.String("replay", "", "path to a .replay file to play back; its machine and switches are used")
-	saveReplayFlag := flag.String("save-replay", "", "path to write a .replay recording of this session on exit")
-	loadStateFlag := flag.String("load-state", "", "path to a .zxstate session to resume from")
-	saveStateFlag := flag.String("save-state", "", "path to write a .zxstate session on exit")
-	sessionFlag := flag.String("session", "", "path to a .zxstate session: resumed if it exists, written on exit")
+	replayFlag := flag.String("replay", "", "path to a replay to play back; its machine and switches are used ("+replayExt+" is added if the name does not carry it)")
+	saveReplayFlag := flag.String("save-replay", "", "path to write a recording of this session on exit ("+replayExt+" is added if the name does not carry it)")
+	loadStateFlag := flag.String("load-state", "", "path to a session to resume from ("+stateExt+" is added if the name does not carry it)")
+	saveStateFlag := flag.String("save-state", "", "path to write a session on exit ("+stateExt+" is added if the name does not carry it)")
+	sessionFlag := flag.String("session", "", "path to a session: resumed if it exists, written on exit ("+stateExt+" is added if the name does not carry it)")
 	flag.Parse()
 
 	// A replay is read before the machine is built: it carries the model and the
 	// switches the session ran with, so it has to be in hand before there is a
 	// config to fill in.
 	var rp *replay.File
-	if *replayFlag != "" {
-		loaded, err := loadReplay(*replayFlag)
+	replayPath := loadPath(*replayFlag, replayExt)
+	if replayPath != "" {
+		loaded, err := loadReplay(replayPath)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to load replay: %v\n", err)
 			os.Exit(1)
@@ -207,7 +217,7 @@ func main() {
 	// of those is fatal - the machine starts clean and says so - because a
 	// session is a convenience and refusing to boot would make a stale file
 	// worse than no file.
-	if statePath := statePathFor(*loadStateFlag, *sessionFlag); statePath != "" {
+	if statePath := loadPath(statePathFor(*loadStateFlag, *sessionFlag), stateExt); statePath != "" {
 		switch {
 		case *saveReplayFlag != "":
 			// The recording's event times are stamped against a timeline this
@@ -242,13 +252,13 @@ func main() {
 	if rp != nil {
 		var warn []string
 		if snapPath == "" {
-			snapPath = resolveMedia(rp.Media.Snapshot, *replayFlag, &warn)
+			snapPath = resolveMedia(rp.Media.Snapshot, replayPath, &warn)
 		}
 		if tapePath == "" {
-			tapePath = resolveMedia(rp.Media.Tape, *replayFlag, &warn)
+			tapePath = resolveMedia(rp.Media.Tape, replayPath, &warn)
 		}
 		if diskPath == "" {
-			diskPath = resolveMedia(rp.Media.Disk, *replayFlag, &warn)
+			diskPath = resolveMedia(rp.Media.Disk, replayPath, &warn)
 		}
 		for _, w := range warn {
 			fmt.Fprintf(os.Stderr, "zxgo-v3: replay media missing: %s\n", w)
@@ -278,7 +288,7 @@ func main() {
 	// on an interrupt, and the deferred saves run. It is written deflated: RAM
 	// and a mostly empty disk compress well, and a session is not a file anyone
 	// reads in an editor.
-	if statePath := statePathFor(*saveStateFlag, *sessionFlag); statePath != "" {
+	if statePath := savePath(statePathFor(*saveStateFlag, *sessionFlag), stateExt); statePath != "" {
 		defer func() {
 			if err := emu.SaveSession(statePath, state.Options{Deflate: true}); err != nil {
 				fmt.Fprintf(os.Stderr, "Failed to save session: %v\n", err)
@@ -353,19 +363,19 @@ func main() {
 	// instruction after this point, and a replay is applied from that same
 	// origin. Both may be attached at once -- playback goes through the same
 	// input methods as a key press, so a replay records itself.
-	if *saveReplayFlag != "" {
+	if recPath := savePath(*saveReplayFlag, replayExt); recPath != "" {
 		rec := replay.NewRecorder()
 		emu.SetRecorder(rec)
 		// Save on exit, and like -save-sna a failure to write is reported but
 		// does not stop the emulator from closing.
 		defer func() {
-			if err := saveReplay(emu, rec, *saveReplayFlag, modelKey,
+			if err := saveReplay(emu, rec, recPath, modelKey,
 				replay.Media{Snapshot: snapPath, Tape: tapePath, Disk: diskPath},
 				fastTape); err != nil {
 				fmt.Fprintf(os.Stderr, "Failed to save replay: %v\n", err)
 			}
 		}()
-		fmt.Printf("  Recording to %s\n", *saveReplayFlag)
+		fmt.Printf("  Recording to %s\n", recPath)
 	}
 
 	if rp != nil {
@@ -373,7 +383,7 @@ func main() {
 		emu.SetPlayer(player)
 		keys, tape := rp.Count()
 		fmt.Printf("  Replay: %s (%d keys, %d tape actions, recorded on %s)\n",
-			*replayFlag, keys, tape, rp.Model)
+			replayPath, keys, tape, rp.Model)
 	}
 
 	run(emu)
@@ -439,6 +449,36 @@ func statePathFor(explicit, session string) string {
 		return explicit
 	}
 	return session
+}
+
+// savePath names the file a save will write: the path as given when it already
+// carries the format's extension, and the path with the extension appended
+// otherwise. `-save-state game` writes game.zxstate rather than a file whose
+// name does not say what is in it, and a typo in the extension is a new file
+// rather than an overwritten one.
+func savePath(path, ext string) string {
+	if path == "" || strings.EqualFold(filepath.Ext(path), ext) {
+		return path
+	}
+	return path + ext
+}
+
+// loadPath names the file a load will read: the path as given if that file
+// exists, then the path with the extension appended if *that* exists, and the
+// suffixed name otherwise - so a file that is not there is reported under the
+// name a save would have written, which is the name the user is looking for.
+//
+// The literal path wins over the suffixed one, deliberately: a user who names an
+// existing file means that file, whatever it is called, and `-session game`
+// written by an earlier run is found by the second step.
+func loadPath(path, ext string) string {
+	if path == "" {
+		return ""
+	}
+	if _, err := os.Stat(path); err == nil {
+		return path
+	}
+	return savePath(path, ext)
 }
 
 func flagWasSet(name string) bool {
