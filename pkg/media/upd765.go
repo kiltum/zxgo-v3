@@ -74,6 +74,11 @@ type UPD765 struct {
 	// writeProtect is set when a WRITE DATA targets a read-only disk; finishData
 	// then reports NW (ST1 bit 1) and abnormal ST0 instead of committing.
 	writeProtect bool
+	// eotReached records that a READ/WRITE DATA span was transferred all the way
+	// through its EOT sector. The FDC then ends the command abnormally with EN
+	// (ST1 bit 7) set: it has tried to step past the last sector of the cylinder.
+	// See endOfCylinder.
+	eotReached bool
 	// formatActive marks an in-progress FORMAT TRACK: the CPU writes 4*SC bytes
 	// of sector IDs (C/H/R/N), and finishData then lays out the formatted track.
 	formatActive bool
@@ -252,6 +257,7 @@ func (u *UPD765) Reset() {
 	u.delData = false
 	u.writePlan = nil
 	u.writeProtect = false
+	u.eotReached = false
 	u.formatActive = false
 	u.formatFill = 0
 	u.phase = 0
@@ -577,6 +583,7 @@ func (u *UPD765) startReadWrite(writing bool) {
 
 	u.writePlan = u.writePlan[:0]
 	u.writeProtect = false
+	u.eotReached = false
 	if u.curDisk() == nil {
 		u.dataBuf = make([]byte, 512) // no disk: zeros
 	} else if writing {
@@ -592,7 +599,8 @@ func (u *UPD765) startReadWrite(writing bool) {
 			}
 			u.writePlan = append(u.writePlan, writeTarget{sectorID: s, size: size})
 			total += size
-			if s == eot {
+			if s >= eot {
+				u.eotReached = true
 				break
 			}
 		}
@@ -619,7 +627,8 @@ func (u *UPD765) startReadWrite(writing bool) {
 				break
 			}
 			data = append(data, secData...)
-			if s == eot {
+			if s >= eot {
+				u.eotReached = true
 				break
 			}
 		}
@@ -701,6 +710,33 @@ func (u *UPD765) applySpeedlock() {
 	}
 }
 
+// endOfCylinder applies the FDC's end-of-cylinder termination. A READ/WRITE DATA
+// command whose span runs through its EOT sector has been asked for the last
+// sector of the track; the FDC steps past it, finds no further sector and ends
+// the command abnormally with EN (ST1 bit 7) set. Fuse models exactly this in
+// upd_fdc.c (abort_read_data / abort_write_data): when a transfer completes at
+// EOT with nothing else flagged it sets ST0 bit 6 (abnormal termination) and
+// ST1 bit 7. ST1 bit 7 is already on in every +3 result (see finishData), so
+// only ST0's abnormal bit has to be added here.
+//
+// Copy-protected loaders probe for that combination: bad2.dsk reads the
+// deliberately mis-numbered track-2 sector with EOT == R and only accepts the
+// read as "end of track" when it comes back ST0=0x40 / ST1=0x80 / ST2=0x00.
+// ZEsarUX's pd765.c carries the same triple for "Wec Le Mans (Erbe).dsk", with
+// a comment naming six more Erbe/speedlock titles that depend on it.
+//
+// EN is reported only when the transfer was otherwise clean; a real error (no
+// data, CRC, write-protect) is reported on its own instead. Fuse additionally
+// suppresses EN whenever ST0's unit/head bits are non-zero, which is an artifact
+// of testing the whole ST0 register rather than its error bits - we follow the
+// datasheet and set EN on head 1 as well.
+func (u *UPD765) endOfCylinder(imgST1 uint8) {
+	if !u.eotReached || u.writeProtect || imgST1 != 0 {
+		return
+	}
+	u.st0 |= 0x40
+}
+
 // finishData completes the sector data transfer and moves to the result phase.
 func (u *UPD765) finishData() {
 	// FORMAT TRACK: dataBuf holds 4*SC bytes of sector IDs (C, H, R, N); lay
@@ -757,8 +793,10 @@ func (u *UPD765) finishData() {
 		st1 |= 0x02 // NW: not writable (write-protected disk)
 	}
 	st2 := uint8(0)
+	imgST1 := uint8(0)
 	if u.curDisk() != nil {
 		if s1, s2, ok := u.curDisk().SectorStatusByID(u.curPCN, u.curHead, u.curTrack, u.curSide, u.curSector); ok {
+			imgST1 = s1
 			st1 |= s1
 			st2 = s2 &^ 0x40 // recompute CM from the command below
 			if u.curDisk().SectorDeletedByID(u.curPCN, u.curHead, u.curTrack, u.curSide, u.curSector) != u.delData {
@@ -766,6 +804,7 @@ func (u *UPD765) finishData() {
 			}
 		}
 	}
+	u.endOfCylinder(imgST1)
 	u.result = []byte{
 		u.st0, st1, st2,
 		u.curTrack, u.curSide, u.curSector, u.curN,

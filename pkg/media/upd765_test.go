@@ -382,6 +382,94 @@ func TestUPD765ReadDeletedDataNoCM(t *testing.T) {
 	}
 }
 
+// testReadData issues a READ DATA (opcode 0x46) for sectors r..eot of track 0 and
+// returns the three status bytes of the result phase.
+func testReadData(t *testing.T, u *UPD765, r, eot uint8) []byte {
+	t.Helper()
+	u.Write(0x3FFD, 0x46)
+	u.Write(0x3FFD, 0x00) // US/HD
+	u.Write(0x3FFD, 0x00) // C
+	u.Write(0x3FFD, 0x00) // H
+	u.Write(0x3FFD, r)
+	u.Write(0x3FFD, 0x02) // N
+	u.Write(0x3FFD, eot)
+	u.Write(0x3FFD, 0x2A) // GPL
+	u.Write(0x3FFD, 0xFF) // DTL
+	dataReady(u)
+	for i := 0; i < 512*int(eot-r+1); i++ {
+		u.Read(0x3FFD)
+	}
+	return []byte{u.Read(0x3FFD), u.Read(0x3FFD), u.Read(0x3FFD)}
+}
+
+// TestUPD765EndOfCylinderResult verifies the end-of-cylinder termination: a READ
+// DATA whose span runs through its EOT sector ends abnormally with EN (ST1 bit 7)
+// set and ST2 clean, because the FDC has tried to step past the last sector of
+// the track (Fuse upd_fdc.c abort_read_data). Protected loaders probe for exactly
+// ST0=0x40 / ST1=0x80 / ST2=0x00: bad2.dsk reads a deliberately mis-numbered
+// sector with EOT == R and only accepts the read as "end of track" when it gets
+// that triple (ZEsarUX pd765.c carries the same triple for Wec Le Mans).
+func TestUPD765EndOfCylinderResult(t *testing.T) {
+	u := NewUPD765()
+	u.MountDisk(newPlus3Disk())
+
+	// Single sector: R == EOT.
+	if r := testReadData(t, u, 2, 2); r[0] != 0x40 || r[1] != 0x80 || r[2] != 0x00 {
+		t.Errorf("single-sector EOT result ST0/ST1/ST2 = %02X/%02X/%02X, want 40/80/00", r[0], r[1], r[2])
+	}
+	// Multi-sector span ending at EOT terminates the same way.
+	if r := testReadData(t, u, 2, 4); r[0] != 0x40 || r[1] != 0x80 || r[2] != 0x00 {
+		t.Errorf("multi-sector EOT result ST0/ST1/ST2 = %02X/%02X/%02X, want 40/80/00", r[0], r[1], r[2])
+	}
+}
+
+// TestUPD765EndOfCylinderSuppressedByError verifies the end-of-cylinder status is
+// only reported for an otherwise clean transfer: when the image carries a sector
+// error (ST1 bit 5 DE, ST2 bit 5 DD) that error is reported instead, and ST0 keeps
+// only its unit/head bits.
+func TestUPD765EndOfCylinderSuppressedByError(t *testing.T) {
+	disk := newPlus3Disk()
+	s := &disk.Tracks[0].Sectors[1]
+	s.ST1 = 0x20
+	s.ST2 = 0x20
+
+	u := NewUPD765()
+	u.MountDisk(disk)
+	r := testReadData(t, u, 2, 2)
+	if r[0] != 0x00 {
+		t.Errorf("ST0 = 0x%02X, want 0x00 (EN suppressed by the sector's error)", r[0])
+	}
+	if r[1] != 0xA0 { // EOC (0x80) | DE (0x20)
+		t.Errorf("ST1 = 0x%02X, want 0xA0", r[1])
+	}
+}
+
+// TestUPD765EndOfCylinderWrite verifies WRITE DATA gets the same termination: a
+// write that completes at EOT ends abnormally with EN set (Fuse abort_write_data
+// sets it unconditionally there).
+func TestUPD765EndOfCylinderWrite(t *testing.T) {
+	u := NewUPD765()
+	u.MountDisk(newPlus3Disk())
+
+	u.Write(0x3FFD, 0x45) // WRITE DATA
+	u.Write(0x3FFD, 0x00) // US/HD
+	u.Write(0x3FFD, 0x00) // C
+	u.Write(0x3FFD, 0x00) // H
+	u.Write(0x3FFD, 0x02) // R
+	u.Write(0x3FFD, 0x02) // N
+	u.Write(0x3FFD, 0x02) // EOT
+	u.Write(0x3FFD, 0x2A) // GPL
+	u.Write(0x3FFD, 0xFF) // DTL
+	dataReady(u)
+	for i := 0; i < 512; i++ {
+		u.Write(0x3FFD, 0xAA)
+	}
+	r := []byte{u.Read(0x3FFD), u.Read(0x3FFD)}
+	if r[0] != 0x40 || r[1] != 0x80 {
+		t.Errorf("WRITE DATA at EOT ST0/ST1 = %02X/%02X, want 40/80", r[0], r[1])
+	}
+}
+
 // TestUPD765SpeedlockWeakBits verifies the Speedlock weak-bit hack: re-reading
 // sector 2 / track 0 / head 0 perturbs the data so each read differs (the
 // loader checks the sector is "unstable").
