@@ -1,38 +1,32 @@
-# Release: build the three targets, package them and publish a GitHub release.
+# Release: a push to a `release-*` branch builds the macOS binary, packages it as a
+# .dmg and refreshes a GitHub pre-release for that version.
 #
-# DISABLED FOR AUTOMATIC RUNS (2026-09-21). It runs only when started by hand from
-# the Actions tab, because the two cross targets in it are unverified on a runner:
-# zig and mingw-w64 on a macOS image, and the static archives in static/ against
-# *that* runner's Homebrew headers. Until that is investigated - and until the .deb
-# job's output is looked at - a tag must not publish something nobody has built.
-# The work is recorded in NEXT_STEPS.md.
+# THE BRANCH IS THE TRIGGER, NOT A TAG. `release-0.1.0` is version 0.1.0: the pipeline
+# creates the tag `v0.1.0` itself, at the commit it built, and attaches the packages
+# to it. Pushing to the same branch again replaces the assets rather than failing, so
+# the branch is the source of truth and every commit on it republishes.
 #
-# To re-enable tags, uncomment the `push` trigger below. The jobs themselves are
-# complete and are the thing a manual run exercises.
+# Every release made this way is marked **pre-release**, because a branch is a
+# candidate and not a decision. Making one final is one click on the release page (or
+# `gh release edit v1.0.0 --prerelease=false`), and that is the only step here that is
+# deliberately left to a person.
 #
-# Which tags (once re-enabled): `v*` - `v0.1.0` for a release, and a tag carrying
-# `-rc`, `-alpha` or `-beta` (`v0.2.0-rc1`) for a pre-release, which is published
-# the same way with GitHub's pre-release flag set.
+# The build is the same one ci.yml makes - `go build` against Homebrew's SDL3, linked
+# dynamically - so what is published is what CI would have built for that commit.
+# macOS only, for now, and so is the packaging. Linux, Windows and a .deb come next,
+# each on its own runner with its own SDL3; that is a step in this file per target.
+# `build.sh` builds all three *statically* (self-contained, SDL3 inside) and is not
+# used here - it is the local/internal path, and one to come back to if the releases
+# should ever carry their libraries again.
 #
-# This is the *static* build, and that is the difference from ci.yml: a release is
-# self-contained (SDL3 linked in from static/, so a user needs nothing installed but
-# glibc), while CI links SDL3 dynamically, natively on each platform, the way a
-# contributor builds. `build.sh` is therefore the release path and is exercised only
-# here - a change to it, or to the archives, is worth a local `./build.sh` before
-# tagging.
-#
-# The packages are the three binaries in archives plus a SHA256SUMS file, and a
-# .deb for Debian/Ubuntu users. Everything else a distro would want (.rpm, .msi,
-# AppImage, a macOS .app bundle) needs packaging tooling that is not set up here;
-# the binaries are the raw material for it.
+# BUILD.md, "CI and releases", has the whole picture.
 name: Release
 
 on:
-  # push:
-  #   tags: ['v*']
-  workflow_dispatch:
+  push:
+    branches: ['release-*']
 
-# The build must not be cancelled half way through publishing a release.
+# Two pushes to the same release branch must not publish over each other.
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
@@ -44,66 +38,79 @@ env:
   GO_VERSION: '1.26.5'
 
 jobs:
-  build:
-    name: build and publish
+  release:
+    name: build, package and publish
     runs-on: macos-latest
+    env:
+      # The vendored Dear ImGui makes internal/ui/imgui a C++ package, so cgo links
+      # with the C++ driver: both compilers have to be set and agree about the
+      # target (BUILD.md, "Toolchains").
+      CC: clang
+      CXX: clang++
     steps:
       - uses: actions/checkout@v7
+
+      # The version is the branch name with the prefix off: release-0.1.0 is 0.1.0.
+      # The guard is here because the pattern in `on:` is a filter, not a promise -
+      # and a release named after a branch that is not a version is worse than a run
+      # that stops.
+      - name: Version from the branch
+        run: |
+          set -eu
+          branch="$GITHUB_REF_NAME"
+          case "$branch" in
+            release-?*) ;;
+            *) echo "not a release branch (release-XXXX): $branch"; exit 1 ;;
+          esac
+          version="${branch#release-}"
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          echo "TAG=v${version}" >> "$GITHUB_ENV"
+          echo "version $version, tag v${version}"
 
       - uses: actions/setup-go@v7
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
-      - name: Toolchains
-        run: brew install sdl3 pkg-config zig mingw-w64
+      - name: SDL3
+        run: brew install sdl3 pkg-config
 
-      - name: Cache the per-target build caches
-        uses: actions/cache@v6
-        with:
-          path: ~/.cache/zxgo-static-build
-          key: static-build-${{ runner.os }}-${{ hashFiles('build.sh', 'static/**') }}
-          restore-keys: static-build-${{ runner.os }}-
+      # The same command ci.yml runs, so the release is what CI built for this
+      # commit - plus a name that says which platform it came from.
+      - name: Build
+        run: go build -trimpath -o zxgo-macos ./cmd/zxgo
 
-      # The same script the maintainers run by hand, so a release cannot be built
-      # a different way from a local build.
-      - name: Build all three targets
-        run: ./build.sh
-
-      # Each archive holds one directory named after itself, holding a binary
-      # called plain `zxgo` (`zxgo.exe` on Windows) - so an unpacked release does
-      # not litter the directory it was unpacked in, and the three platforms do not
-      # disagree about what the executable is called. build.sh's own names
-      # (zxgo-macos, zxgo-linux, zxgo-windows.exe) stay as they are: they are what
-      # a local run produces.
+      # A disk image, which is how a Mac gets a program: mount it and drag `zxgo`
+      # where you want it. The image holds one binary called plain `zxgo` - not the
+      # `zxgo-macos` that build.sh names its output - so what is inside it does not
+      # carry the platform the way the file it came from does.
+      #
+      # UDZO is the compressed read-only format, and HFS+ is asked for explicitly so
+      # the image mounts on macOS older than the runner's.
       - name: Package
         run: |
           set -eu
-          version="$GITHUB_REF_NAME"
-          stage="dist/stage"
-          mkdir -p dist
-          for spec in "macos-arm64:zxgo-macos:zxgo" \
-                      "linux-x86_64:zxgo-linux:zxgo" \
-                      "windows-x86_64:zxgo-windows.exe:zxgo.exe"; do
-            plat="${spec%%:*}"; rest="${spec#*:}"; src="${rest%%:*}"; bin="${rest##*:}"
-            dir="$stage/zxgo-${version}-${plat}"
-            mkdir -p "$dir"
-            install -m 0755 "$src" "$dir/$bin"
-          done
+          name="zxgo-${VERSION}-macos-arm64"
+          mkdir -p "dist/$name"
+          install -m 0755 zxgo-macos "dist/$name/zxgo"
+          hdiutil create -quiet -ov -fs HFS+ -format UDZO \
+            -volname "zxgo ${VERSION}" \
+            -srcfolder "dist/$name" "dist/$name.dmg"
+          rm -rf "dist/$name"
+          ls -l dist
 
-          tar -czf "dist/zxgo-${version}-macos-arm64.tar.gz"  -C "$stage" "zxgo-${version}-macos-arm64"
-          tar -czf "dist/zxgo-${version}-linux-x86_64.tar.gz" -C "$stage" "zxgo-${version}-linux-x86_64"
-          # -f first: zip *appends* to an archive that is already there, and a
-          # re-run in a dirty workspace would otherwise ship both layouts.
-          rm -f "dist/zxgo-${version}-windows-x86_64.zip"
-          (cd "$stage" && zip -qr "../../dist/zxgo-${version}-windows-x86_64.zip" "zxgo-${version}-windows-x86_64")
-
-          rm -rf "$stage"
-          (cd dist && shasum -a 256 -- *.tar.gz *.zip > SHA256SUMS)
+      # Only the globs that match something: with `set -e` an unmatched glob is a
+      # failure, not an empty list - and a release that cannot checksum itself is
+      # worse than one with fewer files in it. `*.zip` and `*.deb` come back with
+      # the Windows and Debian targets.
+      - name: Checksums
+        run: |
+          set -eu
+          (cd dist && shasum -a 256 -- *.dmg > SHA256SUMS)
           cat dist/SHA256SUMS
 
-      # Always, and that is the point of a manual run: it is how the cross targets
-      # get checked on a runner, and what it built has to be inspectable.
+      # Always, so a run that fails after this point has still left something to
+      # inspect.
       - name: Upload the packages
         uses: actions/upload-artifact@v7
         with:
@@ -111,102 +118,22 @@ jobs:
           if-no-files-found: error
           path: dist/*
 
-      # The .deb job needs the Linux binary, so it is uploaded on its own as well.
-      - name: Keep the Linux binary for the packaging job
-        uses: actions/upload-artifact@v7
-        with:
-          name: linux-binary
-          if-no-files-found: error
-          path: zxgo-linux
-
-      # Only a real tag publishes: a manual run on a branch builds, packages and
-      # uploads, and stops there.
-      - name: Publish the release
-        if: startsWith(github.ref, 'refs/tags/v')
+      # Create the first time, refresh after that: a push to a release branch that
+      # already has a release replaces its assets rather than dying on "already
+      # exists", which is what makes "every commit republishes" work.
+      - name: Publish or refresh the pre-release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -eu
-          tag="$GITHUB_REF_NAME"
-          args=(--title "$tag" --generate-notes)
-          case "$tag" in
-            *-rc*|*-alpha*|*-beta*) args+=(--prerelease) ;;
-          esac
-          gh release create "$tag" "${args[@]}" dist/*
-
-  deb:
-    name: package (.deb)
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/download-artifact@v8
-        with:
-          name: linux-binary
-          path: build
-
-      # SDL3 is inside the binary (the whole point of the static archives), so the
-      # only runtime dependency is glibc - and the archive is built against 2.38,
-      # which is what the dependency says.
-      - name: Build the package
-        run: |
-          set -eu
-          version="${GITHUB_REF_NAME#v}"
-          maintainer="$(git log -1 --format='%an <%ae>')"
-          root="pkg"
-          mkdir -p "$root/DEBIAN" "$root/usr/bin" \
-                   "$root/usr/share/applications" "$root/usr/share/doc/zxgo"
-
-          install -m 0755 build/zxgo-linux "$root/usr/bin/zxgo"
-
-          cat > "$root/DEBIAN/control" <<EOF
-          Package: zxgo
-          Version: $version
-          Architecture: amd64
-          Maintainer: $maintainer
-          Section: games
-          Priority: optional
-          Depends: libc6 (>= 2.38)
-          Description: ZX Spectrum emulator (48K, 128K, +2A/+3, Pentagon)
-           An emulator for the ZX Spectrum family, with tape and disk support
-           (TR-DOS and +3), snapshots, sessions, replays and a desktop front end.
-           SDL3 and its dependencies are linked in; only glibc is needed at runtime.
-          EOF
-
-          cat > "$root/usr/share/applications/zxgo.desktop" <<EOF
-          [Desktop Entry]
-          Type=Application
-          Name=zxgo
-          Comment=ZX Spectrum emulator
-          Exec=zxgo
-          Terminal=false
-          Categories=Game;Emulator;
-          EOF
-
-          cp MANUAL.md "$root/usr/share/doc/zxgo/manual.md"
-          dpkg-deb --build --root-owner-group "$root" "dist/zxgo_${version}_amd64.deb"
-          dpkg-deb --info "dist/zxgo_${version}_amd64.deb"
-
-      - name: Upload the package
-        uses: actions/upload-artifact@v7
-        with:
-          name: release-deb-${{ github.sha }}
-          if-no-files-found: error
-          path: dist/*.deb
-
-      # The checksum file the build job published covers the three archives; the
-      # .deb is added here, so it goes into that file too rather than leaving one
-      # artifact of four without a digest.
-      - name: Attach it to the release
-        if: startsWith(github.ref, 'refs/tags/v')
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -eu
-          tag="$GITHUB_REF_NAME"
-          gh release upload "$tag" dist/*.deb
-          gh release download "$tag" --pattern SHA256SUMS --dir .
-          (cd dist && shasum -a 256 -- *.deb) >> SHA256SUMS
-          gh release upload "$tag" SHA256SUMS --clobber
-          cat SHA256SUMS
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "updating $TAG"
+            gh release upload "$TAG" dist/* --clobber
+            gh release edit "$TAG" --prerelease --title "$TAG"
+          else
+            echo "creating $TAG at $GITHUB_SHA"
+            gh release create "$TAG" dist/* \
+              --target "$GITHUB_SHA" --title "$TAG" --prerelease --generate-notes
+          fi
+          gh release view "$TAG" --json tagName,isPrerelease,url \
+            --template '{{.tagName}} (prerelease={{.isPrerelease}}) {{.url}}{{"\n"}}'
