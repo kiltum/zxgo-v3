@@ -1,20 +1,22 @@
-# Continuous integration: every push and pull request builds the emulator and runs
-# the test suite, natively, on all three platforms it supports.
+# Continuous integration: every push and pull request builds the emulator.
 #
-# **Dynamic SDL3, not the vendored archives.** Each runner installs SDL3 the way a
-# contributor would - Homebrew on macOS, a source build on Linux, MSYS2's package on
-# Windows - and links it normally. `build.sh` and the archives in `static/` are the
-# *release* path (release.yml); CI is about "does it build and pass here", and it
-# should fail for the reason a contributor's build would fail.
+# WHAT RUNS TODAY: the macOS job, and only its checks and build - gofmt, go vet,
+# `go build ./...`, then the binary is uploaded. Two things are deliberately off,
+# and both are commented out in place rather than deleted:
 #
-# Each job uploads the binary it built, so every commit has a development build for
-# all three platforms. Those are dynamically linked and need SDL3 installed; the
-# self-contained binaries are the tagged releases.
+#   * `go test ./...`. The suite needs the media in `testdata/`, and most of it is
+#     not in the repository (54 files are tracked; the 9 GB of images are local), so
+#     a CI checkout would fail on a missing file rather than on a defect. ZEXALL is
+#     the other half of it: ~57 s of CPU on a billed macOS runner for a suite that
+#     is the oracle when it runs locally.
+#   * the Linux and Windows jobs. They install SDL3 natively and would be the right
+#     shape for a matrix of platform builds; they are disabled to keep the pipeline
+#     to one runner. Their steps are complete and commented below - re-enable them
+#     by uncommenting, and put the tests back at the same time if the media is ever
+#     published with the source.
 #
-# The three jobs are separate rather than one matrix because `shell:` cannot be a
-# matrix value, and Windows needs the MSYS2 shell. The duplicated steps - `build`
-# and `test` - are deliberately the same three lines in each job so the three can be
-# read against each other.
+# Dynamic SDL3, not the vendored archives: the release path is `build.sh` and
+# release.yml. See BUILD.md, "CI and releases".
 name: CI
 
 on:
@@ -33,24 +35,17 @@ permissions:
 
 env:
   GO_VERSION: '1.26.5'
-  # SDL3 for the Linux job, which has to build it: Ubuntu's runner image is 24.04,
-  # and the package arrived with 25.04 (BUILD.md carries the same note for users).
-  SDL3_VERSION: 3.4.16
-  # Headless: a runner has no display and no sound card. SDL's dummy drivers let
-  # those subsystems initialise, so the tests exercise the real paths rather than
-  # the failure paths.
-  SDL_VIDEODRIVER: dummy
-  SDL_AUDIODRIVER: dummy
-  # The vendored Dear ImGui makes internal/ui/imgui a C++ package, so cgo links
-  # with the C++ driver: both compilers have to be set and agree about the target
-  # (BUILD.md, "Toolchains").
-  CC: gcc
-  CXX: g++
 
 jobs:
-  linux:
-    name: linux
-    runs-on: ubuntu-latest
+  macos:
+    name: macos
+    runs-on: macos-latest
+    env:
+      # The vendored Dear ImGui makes internal/ui/imgui a C++ package, so cgo links
+      # with the C++ driver: both compilers have to be set and agree about the
+      # target (BUILD.md, "Toolchains").
+      CC: clang
+      CXX: clang++
     steps:
       - uses: actions/checkout@v7
 
@@ -59,34 +54,9 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
-      - name: Cache the SDL3 build
-        id: sdl3-cache
-        uses: actions/cache@v6
-        with:
-          path: ~/sdl3
-          key: sdl3-${{ env.SDL3_VERSION }}-linux
+      - name: SDL3
+        run: brew install sdl3 pkg-config
 
-      - name: SDL3 from source
-        if: steps.sdl3-cache.outputs.cache-hit != 'true'
-        run: |
-          curl -sSL -o /tmp/sdl3.tar.gz \
-            "https://github.com/libsdl-org/SDL/releases/download/release-${SDL3_VERSION}/SDL3-${SDL3_VERSION}.tar.gz"
-          tar -xzf /tmp/sdl3.tar.gz -C /tmp
-          cmake -S "/tmp/SDL3-${SDL3_VERSION}" -B /tmp/sdl3-build \
-            -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$HOME/sdl3" \
-            -DSDL_STATIC=OFF -DSDL_TESTS=OFF -DSDL_EXAMPLES=OFF
-          cmake --build /tmp/sdl3-build --parallel
-          cmake --install /tmp/sdl3-build
-
-      - name: Use the built SDL3
-        run: |
-          echo "PKG_CONFIG_PATH=$HOME/sdl3/lib/pkgconfig" >> "$GITHUB_ENV"
-          # The tests run the binary, so the loader has to find the shared library.
-          echo "LD_LIBRARY_PATH=$HOME/sdl3/lib" >> "$GITHUB_ENV"
-
-      # The static checks live here rather than in all three jobs: gofmt and vet do
-      # not depend on the platform, and running them once keeps the other two jobs
-      # to what only they can do.
       - name: gofmt
         run: |
           unformatted="$(gofmt -l cmd internal pkg)"
@@ -104,40 +74,14 @@ jobs:
       - name: build
         run: go build ./...
 
-      - name: test
-        run: go test ./...
-
-      - name: Package the binary
-        run: go build -trimpath -o zxgo-linux ./cmd/zxgo
-
-      - uses: actions/upload-artifact@v7
-        with:
-          name: zxgo-linux-${{ github.sha }}
-          if-no-files-found: error
-          path: zxgo-linux
-
-  macos:
-    name: macos
-    runs-on: macos-latest
-    env:
-      CC: clang
-      CXX: clang++
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-go@v7
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
-
-      - name: SDL3
-        run: brew install sdl3 pkg-config
-
-      - name: build
-        run: go build ./...
-
-      - name: test
-        run: go test ./...
+      # - name: test
+      #   env:
+      #     # Headless: a runner has no display and no sound card. SDL's dummy
+      #     # drivers let those subsystems initialise, so the tests exercise the
+      #     # real paths rather than the failure paths.
+      #     SDL_VIDEODRIVER: dummy
+      #     SDL_AUDIODRIVER: dummy
+      #   run: go test ./...
 
       - name: Package the binary
         run: go build -trimpath -o zxgo-macos ./cmd/zxgo
@@ -148,40 +92,96 @@ jobs:
           if-no-files-found: error
           path: zxgo-macos
 
-  windows:
-    name: windows
-    runs-on: windows-latest
-    defaults:
-      run:
-        shell: msys2 {0}
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-go@v7
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
-
-      - uses: msys2/setup-msys2@v2
-        with:
-          msystem: MINGW64
-          update: false
-          install: >-
-            mingw-w64-x86_64-gcc
-            mingw-w64-x86_64-pkg-config
-            mingw-w64-sdl3
-
-      - name: build
-        run: go build ./...
-
-      - name: test
-        run: go test ./...
-
-      - name: Package the binary
-        run: go build -trimpath -o zxgo-windows.exe ./cmd/zxgo
-
-      - uses: actions/upload-artifact@v7
-        with:
-          name: zxgo-windows-${{ github.sha }}
-          if-no-files-found: error
-          path: zxgo-windows.exe
+  # ---------------------------------------------------------------------------
+  # Disabled: the Linux and Windows builds. Each installs SDL3 natively - a source
+  # build on Linux, because the runner's Ubuntu 24.04 predates the package, and
+  # MSYS2's `mingw-w64-sdl3` on Windows, which is an architecture-independent
+  # package and so carries no x86_64 infix. Uncomment to bring them back.
+  # ---------------------------------------------------------------------------
+  #
+  # linux:
+  #   name: linux
+  #   runs-on: ubuntu-latest
+  #   env:
+  #     CC: gcc
+  #     CXX: g++
+  #     SDL3_VERSION: 3.4.16
+  #   steps:
+  #     - uses: actions/checkout@v7
+  #
+  #     - uses: actions/setup-go@v7
+  #       with:
+  #         go-version: ${{ env.GO_VERSION }}
+  #         cache: true
+  #
+  #     - name: Cache the SDL3 build
+  #       id: sdl3-cache
+  #       uses: actions/cache@v6
+  #       with:
+  #         path: ~/sdl3
+  #         key: sdl3-${{ env.SDL3_VERSION }}-linux
+  #
+  #     - name: SDL3 from source
+  #       if: steps.sdl3-cache.outputs.cache-hit != 'true'
+  #       run: |
+  #         curl -sSL -o /tmp/sdl3.tar.gz \
+  #           "https://github.com/libsdl-org/SDL/releases/download/release-${SDL3_VERSION}/SDL3-${SDL3_VERSION}.tar.gz"
+  #         tar -xzf /tmp/sdl3.tar.gz -C /tmp
+  #         cmake -S "/tmp/SDL3-${SDL3_VERSION}" -B /tmp/sdl3-build \
+  #           -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$HOME/sdl3" \
+  #           -DSDL_STATIC=OFF -DSDL_TESTS=OFF -DSDL_EXAMPLES=OFF
+  #         cmake --build /tmp/sdl3-build --parallel
+  #         cmake --install /tmp/sdl3-build
+  #
+  #     - name: Use the built SDL3
+  #       run: |
+  #         echo "PKG_CONFIG_PATH=$HOME/sdl3/lib/pkgconfig" >> "$GITHUB_ENV"
+  #         # The tests run the binary, so the loader has to find the shared library.
+  #         echo "LD_LIBRARY_PATH=$HOME/sdl3/lib" >> "$GITHUB_ENV"
+  #
+  #     - name: build
+  #       run: go build ./...
+  #
+  #     - name: Package the binary
+  #       run: go build -trimpath -o zxgo-linux ./cmd/zxgo
+  #
+  #     - uses: actions/upload-artifact@v7
+  #       with:
+  #         name: zxgo-linux-${{ github.sha }}
+  #         if-no-files-found: error
+  #         path: zxgo-linux
+  #
+  # windows:
+  #   name: windows
+  #   runs-on: windows-latest
+  #   defaults:
+  #     run:
+  #       shell: msys2 {0}
+  #   steps:
+  #     - uses: actions/checkout@v7
+  #
+  #     - uses: actions/setup-go@v7
+  #       with:
+  #         go-version: ${{ env.GO_VERSION }}
+  #         cache: true
+  #
+  #     - uses: msys2/setup-msys2@v2
+  #       with:
+  #         msystem: MINGW64
+  #         update: false
+  #         install: >-
+  #           mingw-w64-x86_64-gcc
+  #           mingw-w64-x86_64-pkg-config
+  #           mingw-w64-sdl3
+  #
+  #     - name: build
+  #       run: go build ./...
+  #
+  #     - name: Package the binary
+  #       run: go build -trimpath -o zxgo-windows.exe ./cmd/zxgo
+  #
+  #     - uses: actions/upload-artifact@v7
+  #       with:
+  #         name: zxgo-windows-${{ github.sha }}
+  #         if-no-files-found: error
+  #         path: zxgo-windows.exe

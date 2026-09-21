@@ -1,10 +1,18 @@
-# Release: a version tag builds the three targets, packages them and publishes
-# them as a GitHub release.
+# Release: build the three targets, package them and publish a GitHub release.
 #
-# Which tags: `v*` - `v0.1.0` for a release, and a tag carrying `-rc`, `-alpha` or
-# `-beta` (`v0.2.0-rc1`) for a pre-release, which is published the same way with
-# GitHub's pre-release flag set. Anything else is a normal CI run (ci.yml) and
-# publishes nothing.
+# DISABLED FOR AUTOMATIC RUNS (2026-09-21). It runs only when started by hand from
+# the Actions tab, because the two cross targets in it are unverified on a runner:
+# zig and mingw-w64 on a macOS image, and the static archives in static/ against
+# *that* runner's Homebrew headers. Until that is investigated - and until the .deb
+# job's output is looked at - a tag must not publish something nobody has built.
+# The work is recorded in NEXT_STEPS.md.
+#
+# To re-enable tags, uncomment the `push` trigger below. The jobs themselves are
+# complete and are the thing a manual run exercises.
+#
+# Which tags (once re-enabled): `v*` - `v0.1.0` for a release, and a tag carrying
+# `-rc`, `-alpha` or `-beta` (`v0.2.0-rc1`) for a pre-release, which is published
+# the same way with GitHub's pre-release flag set.
 #
 # This is the *static* build, and that is the difference from ci.yml: a release is
 # self-contained (SDL3 linked in from static/, so a user needs nothing installed but
@@ -20,8 +28,9 @@
 name: Release
 
 on:
-  push:
-    tags: ['v*']
+  # push:
+  #   tags: ['v*']
+  workflow_dispatch:
 
 # The build must not be cancelled half way through publishing a release.
 concurrency:
@@ -93,7 +102,27 @@ jobs:
           (cd dist && shasum -a 256 -- *.tar.gz *.zip > SHA256SUMS)
           cat dist/SHA256SUMS
 
+      # Always, and that is the point of a manual run: it is how the cross targets
+      # get checked on a runner, and what it built has to be inspectable.
+      - name: Upload the packages
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-packages-${{ github.sha }}
+          if-no-files-found: error
+          path: dist/*
+
+      # The .deb job needs the Linux binary, so it is uploaded on its own as well.
+      - name: Keep the Linux binary for the packaging job
+        uses: actions/upload-artifact@v7
+        with:
+          name: linux-binary
+          if-no-files-found: error
+          path: zxgo-linux
+
+      # Only a real tag publishes: a manual run on a branch builds, packages and
+      # uploads, and stops there.
       - name: Publish the release
+        if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -104,15 +133,6 @@ jobs:
             *-rc*|*-alpha*|*-beta*) args+=(--prerelease) ;;
           esac
           gh release create "$tag" "${args[@]}" dist/*
-
-      # The .deb job needs the Linux binary; it is already an artifact of this job
-      # for CI, so reuse the same upload rather than building twice.
-      - name: Keep the Linux binary for the packaging job
-        uses: actions/upload-artifact@v7
-        with:
-          name: linux-binary
-          if-no-files-found: error
-          path: zxgo-linux
 
   deb:
     name: package (.deb)
@@ -168,10 +188,18 @@ jobs:
           dpkg-deb --build --root-owner-group "$root" "dist/zxgo_${version}_amd64.deb"
           dpkg-deb --info "dist/zxgo_${version}_amd64.deb"
 
+      - name: Upload the package
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-deb-${{ github.sha }}
+          if-no-files-found: error
+          path: dist/*.deb
+
       # The checksum file the build job published covers the three archives; the
-      # .deb is added here, so it is added to that file too rather than leaving one
-      # asset of four without a digest.
+      # .deb is added here, so it goes into that file too rather than leaving one
+      # artifact of four without a digest.
       - name: Attach it to the release
+        if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
