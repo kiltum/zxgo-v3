@@ -1,0 +1,187 @@
+# Continuous integration: every push and pull request builds the emulator and runs
+# the test suite, natively, on all three platforms it supports.
+#
+# **Dynamic SDL3, not the vendored archives.** Each runner installs SDL3 the way a
+# contributor would - Homebrew on macOS, a source build on Linux, MSYS2's package on
+# Windows - and links it normally. `build.sh` and the archives in `static/` are the
+# *release* path (release.yml); CI is about "does it build and pass here", and it
+# should fail for the reason a contributor's build would fail.
+#
+# Each job uploads the binary it built, so every commit has a development build for
+# all three platforms. Those are dynamically linked and need SDL3 installed; the
+# self-contained binaries are the tagged releases.
+#
+# The three jobs are separate rather than one matrix because `shell:` cannot be a
+# matrix value, and Windows needs the MSYS2 shell. The duplicated steps - `build`
+# and `test` - are deliberately the same three lines in each job so the three can be
+# read against each other.
+name: CI
+
+on:
+  push:
+    branches: ['**']
+    tags-ignore: ['**']
+  pull_request:
+
+# A push superseded by another push has nothing left to prove.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  GO_VERSION: '1.26.5'
+  # SDL3 for the Linux job, which has to build it: Ubuntu's runner image is 24.04,
+  # and the package arrived with 25.04 (BUILD.md carries the same note for users).
+  SDL3_VERSION: 3.4.16
+  # Headless: a runner has no display and no sound card. SDL's dummy drivers let
+  # those subsystems initialise, so the tests exercise the real paths rather than
+  # the failure paths.
+  SDL_VIDEODRIVER: dummy
+  SDL_AUDIODRIVER: dummy
+  # The vendored Dear ImGui makes internal/ui/imgui a C++ package, so cgo links
+  # with the C++ driver: both compilers have to be set and agree about the target
+  # (BUILD.md, "Toolchains").
+  CC: gcc
+  CXX: g++
+
+jobs:
+  linux:
+    name: linux
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Cache the SDL3 build
+        id: sdl3-cache
+        uses: actions/cache@v6
+        with:
+          path: ~/sdl3
+          key: sdl3-${{ env.SDL3_VERSION }}-linux
+
+      - name: SDL3 from source
+        if: steps.sdl3-cache.outputs.cache-hit != 'true'
+        run: |
+          curl -sSL -o /tmp/sdl3.tar.gz \
+            "https://github.com/libsdl-org/SDL/releases/download/release-${SDL3_VERSION}/SDL3-${SDL3_VERSION}.tar.gz"
+          tar -xzf /tmp/sdl3.tar.gz -C /tmp
+          cmake -S "/tmp/SDL3-${SDL3_VERSION}" -B /tmp/sdl3-build \
+            -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$HOME/sdl3" \
+            -DSDL_STATIC=OFF -DSDL_TESTS=OFF -DSDL_EXAMPLES=OFF
+          cmake --build /tmp/sdl3-build --parallel
+          cmake --install /tmp/sdl3-build
+
+      - name: Use the built SDL3
+        run: |
+          echo "PKG_CONFIG_PATH=$HOME/sdl3/lib/pkgconfig" >> "$GITHUB_ENV"
+          # The tests run the binary, so the loader has to find the shared library.
+          echo "LD_LIBRARY_PATH=$HOME/sdl3/lib" >> "$GITHUB_ENV"
+
+      # The static checks live here rather than in all three jobs: gofmt and vet do
+      # not depend on the platform, and running them once keeps the other two jobs
+      # to what only they can do.
+      - name: gofmt
+        run: |
+          unformatted="$(gofmt -l cmd internal pkg)"
+          if [ -n "$unformatted" ]; then
+            echo "not gofmt'd:"; echo "$unformatted"; exit 1
+          fi
+
+      # pkg/mem is excluded on purpose: its ReadByte/WriteByte are memory-mapper
+      # methods and vet's stdmethods check reads them as io.ByteReader. CLAUDE.md
+      # records those six findings as the only vet output in the tree, so anything
+      # else - here or anywhere - is a regression this gate should catch.
+      - name: go vet
+        run: go list ./... | grep -v '/pkg/mem$' | xargs go vet
+
+      - name: build
+        run: go build ./...
+
+      - name: test
+        run: go test ./...
+
+      - name: Package the binary
+        run: go build -trimpath -o zxgo-linux ./cmd/zxgo
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: zxgo-linux-${{ github.sha }}
+          if-no-files-found: error
+          path: zxgo-linux
+
+  macos:
+    name: macos
+    runs-on: macos-latest
+    env:
+      CC: clang
+      CXX: clang++
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: SDL3
+        run: brew install sdl3 pkg-config
+
+      - name: build
+        run: go build ./...
+
+      - name: test
+        run: go test ./...
+
+      - name: Package the binary
+        run: go build -trimpath -o zxgo-macos ./cmd/zxgo
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: zxgo-macos-${{ github.sha }}
+          if-no-files-found: error
+          path: zxgo-macos
+
+  windows:
+    name: windows
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: false
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-pkg-config
+            mingw-w64-sdl3
+
+      - name: build
+        run: go build ./...
+
+      - name: test
+        run: go test ./...
+
+      - name: Package the binary
+        run: go build -trimpath -o zxgo-windows.exe ./cmd/zxgo
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: zxgo-windows-${{ github.sha }}
+          if-no-files-found: error
+          path: zxgo-windows.exe

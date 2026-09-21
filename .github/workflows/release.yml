@@ -1,0 +1,184 @@
+# Release: a version tag builds the three targets, packages them and publishes
+# them as a GitHub release.
+#
+# Which tags: `v*` - `v0.1.0` for a release, and a tag carrying `-rc`, `-alpha` or
+# `-beta` (`v0.2.0-rc1`) for a pre-release, which is published the same way with
+# GitHub's pre-release flag set. Anything else is a normal CI run (ci.yml) and
+# publishes nothing.
+#
+# This is the *static* build, and that is the difference from ci.yml: a release is
+# self-contained (SDL3 linked in from static/, so a user needs nothing installed but
+# glibc), while CI links SDL3 dynamically, natively on each platform, the way a
+# contributor builds. `build.sh` is therefore the release path and is exercised only
+# here - a change to it, or to the archives, is worth a local `./build.sh` before
+# tagging.
+#
+# The packages are the three binaries in archives plus a SHA256SUMS file, and a
+# .deb for Debian/Ubuntu users. Everything else a distro would want (.rpm, .msi,
+# AppImage, a macOS .app bundle) needs packaging tooling that is not set up here;
+# the binaries are the raw material for it.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+# The build must not be cancelled half way through publishing a release.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+env:
+  GO_VERSION: '1.26.5'
+
+jobs:
+  build:
+    name: build and publish
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Toolchains
+        run: brew install sdl3 pkg-config zig mingw-w64
+
+      - name: Cache the per-target build caches
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/zxgo-static-build
+          key: static-build-${{ runner.os }}-${{ hashFiles('build.sh', 'static/**') }}
+          restore-keys: static-build-${{ runner.os }}-
+
+      # The same script the maintainers run by hand, so a release cannot be built
+      # a different way from a local build.
+      - name: Build all three targets
+        run: ./build.sh
+
+      # Each archive holds one directory named after itself, holding a binary
+      # called plain `zxgo` (`zxgo.exe` on Windows) - so an unpacked release does
+      # not litter the directory it was unpacked in, and the three platforms do not
+      # disagree about what the executable is called. build.sh's own names
+      # (zxgo-macos, zxgo-linux, zxgo-windows.exe) stay as they are: they are what
+      # a local run produces.
+      - name: Package
+        run: |
+          set -eu
+          version="$GITHUB_REF_NAME"
+          stage="dist/stage"
+          mkdir -p dist
+          for spec in "macos-arm64:zxgo-macos:zxgo" \
+                      "linux-x86_64:zxgo-linux:zxgo" \
+                      "windows-x86_64:zxgo-windows.exe:zxgo.exe"; do
+            plat="${spec%%:*}"; rest="${spec#*:}"; src="${rest%%:*}"; bin="${rest##*:}"
+            dir="$stage/zxgo-${version}-${plat}"
+            mkdir -p "$dir"
+            install -m 0755 "$src" "$dir/$bin"
+          done
+
+          tar -czf "dist/zxgo-${version}-macos-arm64.tar.gz"  -C "$stage" "zxgo-${version}-macos-arm64"
+          tar -czf "dist/zxgo-${version}-linux-x86_64.tar.gz" -C "$stage" "zxgo-${version}-linux-x86_64"
+          # -f first: zip *appends* to an archive that is already there, and a
+          # re-run in a dirty workspace would otherwise ship both layouts.
+          rm -f "dist/zxgo-${version}-windows-x86_64.zip"
+          (cd "$stage" && zip -qr "../../dist/zxgo-${version}-windows-x86_64.zip" "zxgo-${version}-windows-x86_64")
+
+          rm -rf "$stage"
+          (cd dist && shasum -a 256 -- *.tar.gz *.zip > SHA256SUMS)
+          cat dist/SHA256SUMS
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          tag="$GITHUB_REF_NAME"
+          args=(--title "$tag" --generate-notes)
+          case "$tag" in
+            *-rc*|*-alpha*|*-beta*) args+=(--prerelease) ;;
+          esac
+          gh release create "$tag" "${args[@]}" dist/*
+
+      # The .deb job needs the Linux binary; it is already an artifact of this job
+      # for CI, so reuse the same upload rather than building twice.
+      - name: Keep the Linux binary for the packaging job
+        uses: actions/upload-artifact@v7
+        with:
+          name: linux-binary
+          if-no-files-found: error
+          path: zxgo-linux
+
+  deb:
+    name: package (.deb)
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: linux-binary
+          path: build
+
+      # SDL3 is inside the binary (the whole point of the static archives), so the
+      # only runtime dependency is glibc - and the archive is built against 2.38,
+      # which is what the dependency says.
+      - name: Build the package
+        run: |
+          set -eu
+          version="${GITHUB_REF_NAME#v}"
+          maintainer="$(git log -1 --format='%an <%ae>')"
+          root="pkg"
+          mkdir -p "$root/DEBIAN" "$root/usr/bin" \
+                   "$root/usr/share/applications" "$root/usr/share/doc/zxgo"
+
+          install -m 0755 build/zxgo-linux "$root/usr/bin/zxgo"
+
+          cat > "$root/DEBIAN/control" <<EOF
+          Package: zxgo
+          Version: $version
+          Architecture: amd64
+          Maintainer: $maintainer
+          Section: games
+          Priority: optional
+          Depends: libc6 (>= 2.38)
+          Description: ZX Spectrum emulator (48K, 128K, +2A/+3, Pentagon)
+           An emulator for the ZX Spectrum family, with tape and disk support
+           (TR-DOS and +3), snapshots, sessions, replays and a desktop front end.
+           SDL3 and its dependencies are linked in; only glibc is needed at runtime.
+          EOF
+
+          cat > "$root/usr/share/applications/zxgo.desktop" <<EOF
+          [Desktop Entry]
+          Type=Application
+          Name=zxgo
+          Comment=ZX Spectrum emulator
+          Exec=zxgo
+          Terminal=false
+          Categories=Game;Emulator;
+          EOF
+
+          cp MANUAL.md "$root/usr/share/doc/zxgo/manual.md"
+          dpkg-deb --build --root-owner-group "$root" "dist/zxgo_${version}_amd64.deb"
+          dpkg-deb --info "dist/zxgo_${version}_amd64.deb"
+
+      # The checksum file the build job published covers the three archives; the
+      # .deb is added here, so it is added to that file too rather than leaving one
+      # asset of four without a digest.
+      - name: Attach it to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          tag="$GITHUB_REF_NAME"
+          gh release upload "$tag" dist/*.deb
+          gh release download "$tag" --pattern SHA256SUMS --dir .
+          (cd dist && shasum -a 256 -- *.deb) >> SHA256SUMS
+          gh release upload "$tag" SHA256SUMS --clobber
+          cat SHA256SUMS
