@@ -17,7 +17,7 @@ func registerEmulatorTools(s *server.MCPServer, h *workerHandle, log *slog.Logge
 	s.AddTool(mcp.NewTool("build_machine",
 		mcp.WithDescription("Build a headless emulator machine. Returns a machine summary."),
 		mcp.WithString("name", mcp.Description("Machine name."), mcp.Required()),
-		mcp.WithString("model", mcp.Description("Model: 48k, 128k, 2a3, pentagon (default 48k).")),
+		mcp.WithString("model", mcp.Description("Model: 48k, 128k, 2a3, pentagon, pentagon512 (default 48k).")),
 		mcp.WithString("roms_dir", mcp.Description("Directory with ROM files (default 'roms').")),
 		mcp.WithString("disk", mcp.Description("Path to a disk image (.trd/.scl/.dsk), or a .zip holding one.")),
 		mcp.WithString("tape", mcp.Description("Path to a tape image (.tap/.tzx), or a .zip holding one; mounted, not started.")),

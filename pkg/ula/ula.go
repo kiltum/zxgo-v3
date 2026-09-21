@@ -242,6 +242,16 @@ func (u *ULA) SetKeyUp(halfRow, keyBit int) {
 	}
 }
 
+// IsKeyDown reports whether a key of the matrix is held, which is what an on-screen
+// keyboard draws from: the front end holds the same two setters, but a key can also be
+// down because the machine's own code or a replay put it there.
+func (u *ULA) IsKeyDown(halfRow, keyBit int) bool {
+	if halfRow < 0 || halfRow >= 8 || keyBit < 0 || keyBit >= 5 {
+		return false
+	}
+	return u.keyboard[halfRow]&(1<<keyBit) == 0
+}
+
 // --- Tick ---
 
 // OneTick advances the ULA by 1 T-state, drawing one column of the current
@@ -273,7 +283,8 @@ func (u *ULA) OneTick() {
 	}
 
 	// Assert /INT at the model's interrupt position (T=0 for every model; the
-	// Pentagon uses T=0 too, not a mid-frame offset - see PENTAGON_INT_TIMING.md).
+	// Pentagon uses T=0 too, not a mid-frame offset; each model's InterruptOffset is 0
+	// and the frame-wrap test pins the position for all of them (pkg/ula/ula_test.go)).
 	// The pulse is held for interruptLength T-states.
 	if u.clock == u.interruptOffset {
 		u.intAssertedUntil = u.absoluteClock + int64(u.interruptLength)

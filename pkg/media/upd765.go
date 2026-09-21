@@ -719,9 +719,10 @@ func (u *UPD765) applySpeedlock() {
 // ST1 bit 7. ST1 bit 7 is already on in every +3 result (see finishData), so
 // only ST0's abnormal bit has to be added here.
 //
-// Copy-protected loaders probe for that combination: bad2.dsk reads the
-// deliberately mis-numbered track-2 sector with EOT == R and only accepts the
-// read as "end of track" when it comes back ST0=0x40 / ST1=0x80 / ST2=0x00.
+// Copy-protected loaders probe for that combination: the SamDisk-built test disk
+// that used to live at testdata/bad2.dsk read the deliberately mis-numbered
+// track-2 sector with EOT == R and only accepted the read as "end of track" when
+// it came back ST0=0x40 / ST1=0x80 / ST2=0x00.
 // ZEsarUX's pd765.c carries the same triple for "Wec Le Mans (Erbe).dsk", with
 // a comment naming six more Erbe/speedlock titles that depend on it.
 //

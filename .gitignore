@@ -5,6 +5,12 @@
 /zxgo-linux
 /zxgo-windows.exe
 /*.png
+# The rule above covers a screenshot taken where the emulator is usually run. This
+# one covers the other case: a screenshot written while the working directory
+# happened to be a package, which is how test runs once left files in
+# internal/frontend. It is deliberately scoped to the code tree: ./screenshots/ is
+# a real directory with committed files in it, and nothing there should be hidden.
+internal/**/screenshot-*.png
 /zxgo-test
 testdata/Games/
 /disktest

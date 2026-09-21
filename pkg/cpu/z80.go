@@ -61,6 +61,7 @@ type Z80 struct {
 	HALT             bool   // HALT state
 	MEMPTR           uint16 // Undocumented MEMPTR (WZ) register
 	interruptPending bool   // Current /INT level sampled at the instruction boundary
+	nmiPending       bool   // A non-maskable interrupt has been requested (AUDIT S6/6.1)
 
 	// EI delay: after EI, interrupts should be enabled after the NEXT instruction.
 	// eipending is set by EI and consumed by the next ExecuteOneInstruction call.
@@ -129,6 +130,11 @@ func (z *Z80) SetMEMPTRReal(on bool) {
 	z.memptrReal = on
 }
 
+// MEMPTRReal reports which MEMPTR behaviour the CPU is running. It exists so a front end can
+// ask the chip rather than remember, the same way IsNMOS is read: a session saves both, so
+// what was restored is the answer.
+func (z *Z80) MEMPTRReal() bool { return z.memptrReal }
+
 // SetInterruptLevel sets the current /INT level seen by the CPU.
 // The Z80 samples /INT at the end of each instruction, so the emulator calls
 // this once per instruction with the level at the instruction boundary. Setting
@@ -148,6 +154,18 @@ func (z *Z80) ExecuteOneInstruction() int {
 	// When this call returns and the NEXT instruction starts, eipending is false.
 	blockInterrupt := z.eipending
 	z.eipending = false
+
+	// NMI first: it is unmaskable, it is not gated by IFF1, and the EI delay does
+	// not apply to it - that delay exists because an EI's effect on /INT is one
+	// instruction late, and an NMI has no such subtlety. One request is one NMI: the
+	// latch clears here, so a second NMI needs a second RequestNMI.
+	if z.nmiPending {
+		z.nmiPending = false
+		if intLog != nil {
+			intLog.Debug("nmi_taken", "pc", z.PC)
+		}
+		return z.handleNMI()
+	}
 
 	// Handle interrupts if enabled and not blocked by EI delay.
 	// On real Z80, INT is sampled at the end of each instruction.
@@ -186,6 +204,45 @@ func (z *Z80) ExecuteOneInstruction() int {
 	default:
 		return z.executeOpcode(opcode)
 	}
+}
+
+// RequestNMI latches a non-maskable interrupt: it is serviced by the next
+// ExecuteOneInstruction, and the latch clears then, so one request is one NMI.
+//
+// Nothing requests it unless a front end does, which is what keeps it additive: the
+// Fuse and ZEXALL suites never set the latch and cannot see the branch (UI_DESIGN.md
+// section 6.1).
+func (z *Z80) RequestNMI() { z.nmiPending = true }
+
+// handleNMI services a non-maskable interrupt: 11 T-states, the return address
+// pushed, and control to 0x0066.
+//
+// Two of its choices mirror handleInterrupt rather than the datasheet, because they
+// are what the rest of this core already does, and an NMI that disagreed with /INT
+// about them would be wrong in a way nothing would catch:
+//
+//   - PC is advanced past a HALT before it is pushed. This core keeps PC pointing
+//     *at* the HALT instruction while halted (opcodes.go's 0x76 does PC--), so the
+//     ++ is what makes the pushed address the instruction after the HALT - the
+//     address RETN has to return to.
+//   - MEMPTR ends up holding the address jumped to, as it does for /INT.
+//
+// IFF2 = IFF1 is the whole of the flag work: RETN restores IFF1 from IFF2 (ed.go), so
+// an NMI taken inside a critical section does not enable interrupts on the way out.
+// IFF1 itself is cleared, which is the one thing an NMI does mask.
+func (z *Z80) handleNMI() int {
+	if z.HALT {
+		z.HALT = false
+		z.PC++
+	}
+
+	z.IFF2 = z.IFF1
+	z.IFF1 = false
+
+	z.push(z.PC)
+	z.PC = 0x0066
+	z.MEMPTR = 0x0066
+	return 11
 }
 
 // handleInterrupt handles interrupt processing.

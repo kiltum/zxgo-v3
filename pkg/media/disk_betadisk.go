@@ -4,7 +4,7 @@ package media
 type WD1793Command byte
 
 // WD1793 command encoding. The command is selected by the top three bits; see
-// commandName for the full table and TRDOS_NOTES.md for why the read/write
+// commandName for the full table and the comment on the read/write
 // sector split is bit 5 rather than bit 6.
 
 // WD1793Status represents the WD1793 status register

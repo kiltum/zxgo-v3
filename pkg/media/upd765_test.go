@@ -406,9 +406,10 @@ func testReadData(t *testing.T, u *UPD765, r, eot uint8) []byte {
 // DATA whose span runs through its EOT sector ends abnormally with EN (ST1 bit 7)
 // set and ST2 clean, because the FDC has tried to step past the last sector of
 // the track (Fuse upd_fdc.c abort_read_data). Protected loaders probe for exactly
-// ST0=0x40 / ST1=0x80 / ST2=0x00: bad2.dsk reads a deliberately mis-numbered
-// sector with EOT == R and only accepts the read as "end of track" when it gets
-// that triple (ZEsarUX pd765.c carries the same triple for Wec Le Mans).
+// ST0=0x40 / ST1=0x80 / ST2=0x00: the SamDisk-built test disk that used to live at
+// testdata/bad2.dsk read a deliberately mis-numbered sector with EOT == R and only
+// accepted the read as "end of track" when it got that triple (ZEsarUX pd765.c
+// carries the same triple for Wec Le Mans).
 func TestUPD765EndOfCylinderResult(t *testing.T) {
 	u := NewUPD765()
 	u.MountDisk(newPlus3Disk())

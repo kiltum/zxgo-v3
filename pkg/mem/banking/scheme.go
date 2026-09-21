@@ -3,7 +3,7 @@ package banking
 
 // BankType identifies the kind of bank a mapped address resolves to. It is a
 // uint8 enum, not a string, so the memory mapper's hot path avoids a string
-// comparison on every access (PROFILING.md 1.3).
+// comparison on every access; a single type byte is what the hot path compares now.
 type BankType uint8
 
 const (

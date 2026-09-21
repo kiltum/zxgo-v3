@@ -64,6 +64,11 @@ type Emulator struct {
 	betaDisk *media.BetaDiskController // Beta Disk controller (WD1793)
 	upd765   *media.UPD765             // uPD765 floppy controller (+2A/+3)
 
+	// diskPath is where the mounted disk came from. A Disk does not carry its own
+	// path and its TR-DOS name is empty for other formats, so a front end that wanted
+	// to name the file would have nothing to name it by.
+	diskPath string
+
 	// trace records a per-instruction delta trace when enabled (Phase 8).
 	trace *Trace
 
@@ -129,6 +134,82 @@ func (e *Emulator) LoadDisk(disk *media.Disk) error {
 	return nil
 }
 
+// MountDiskFromPath loads a disk image and mounts it, and is what a front end uses:
+// the format dispatch, the mount and the read-out are already single-sourced here, so
+// a window and the command line cannot disagree about what a file is.
+//
+// The path is remembered because the emulator needs it and nothing else does: a disk
+// carries its own TR-DOS name, which is empty for other formats, so a window with only
+// the disk in hand could not say which file it came from.
+func (e *Emulator) MountDiskFromPath(path string) (media.DiskInfo, error) {
+	disk, err := media.LoadDiskFile(path)
+	if err != nil {
+		return media.DiskInfo{}, err
+	}
+	if err := e.LoadDisk(disk); err != nil {
+		return media.DiskInfo{}, err
+	}
+	e.diskPath = path
+	return disk.GetDetailedInfo(), nil
+}
+
+// SetNoFDCTiming turns the floppy controller's seek and rotational latency off, or
+// back on. It applies to whichever controllers the machine has, and it is a live
+// setting: D10 lists it as one, because it changes nothing about the peripheral graph.
+//
+// The state lives in the machine's config, which is where a *load* reads it from: two
+// places holding it would let the window say one thing and the next mount do another.
+func (e *Emulator) SetNoFDCTiming(on bool) {
+	e.cfg.NoFDCTiming = on
+	if e.betaDisk != nil {
+		e.betaDisk.SetNoTiming(on)
+	}
+	if e.upd765 != nil {
+		e.upd765.SetNoTiming(on)
+	}
+}
+
+// NoFDCTiming reports whether the controller is modelling seek and rotational latency.
+func (e *Emulator) NoFDCTiming() bool { return e.cfg.NoFDCTiming }
+
+// EjectDisk takes the disk out of the selected drive, leaving the controller in place.
+// Both controllers keep their state: what is ejected is the medium, not the chip.
+func (e *Emulator) EjectDisk() {
+	if e.upd765 != nil {
+		e.upd765.MountDisk(nil)
+	}
+	if e.betaDisk != nil {
+		e.betaDisk.UnmountDisk()
+	}
+	e.diskPath = ""
+}
+
+// DiskPath is the file the mounted disk came from, or empty when there is none. It is
+// separate from a DiskInfo because a disk does not know where it was loaded from.
+func (e *Emulator) DiskPath() string { return e.diskPath }
+
+// DiskInfo is what is in the drive, and whether there is anything there at all.
+func (e *Emulator) DiskInfo() (media.DiskInfo, bool) {
+	fdc, ok := e.FDC()
+	if !ok || !fdc.Ready {
+		return media.DiskInfo{}, false
+	}
+	return fdc.Disk, true
+}
+
+// FDC reports the floppy controller's state, and whether this machine has one. A
+// machine with no controller answers false rather than making every caller ask which
+// model it is.
+func (e *Emulator) FDC() (media.FDCState, bool) {
+	switch {
+	case e.upd765 != nil:
+		return e.upd765.StateSnapshot(), true
+	case e.betaDisk != nil:
+		return e.betaDisk.StateSnapshot(), true
+	}
+	return media.FDCState{}, false
+}
+
 // BetaDisk returns the Beta Disk controller.
 func (e *Emulator) BetaDisk() *media.BetaDiskController { return e.betaDisk }
 
@@ -147,6 +228,26 @@ func (e *Emulator) LoadTape(tape *media.Tape) error {
 // TapePlayback returns the current tape playback controller.
 func (e *Emulator) TapePlayback() *media.Playback { return e.tape }
 
+// Tape reports the tape's state as plain data, and whether one is loaded. A front end
+// asks every frame it draws a tape window, so a machine with no tape answers rather
+// than being a case the caller has to check for first.
+func (e *Emulator) Tape() (media.TapeState, bool) {
+	if e.tape == nil {
+		return media.TapeState{Current: -1}, false
+	}
+	return e.tape.StateSnapshot(), true
+}
+
+// LoadTapeFromPath loads a tape image, zipped or not: the format is whatever the file
+// (or the archive entry) turns out to be, so no caller has to know.
+func (e *Emulator) LoadTapeFromPath(path string) error {
+	tape, err := media.LoadTapeFile(path)
+	if err != nil {
+		return err
+	}
+	return e.LoadTape(tape)
+}
+
 // SetFastTape enables fast tape loading: while a tape is playing the emulator
 // skips the speed throttle and runs as fast as the host allows. The tape bit
 // stream is driven by emulated T-states, so a load completes in host time
@@ -160,6 +261,11 @@ func (e *Emulator) SetFastTape(on bool) { e.fastTape = on }
 // exhausted, which caps the loop at the display refresh rate and puts the tape
 // back on something close to real time.
 func (e *Emulator) FastTapeActive() bool { return e.fastTapeActive() }
+
+// FastTape is the fast-tape switch itself, which is not the same as whether a tape is
+// currently running fast: a recording writes down how the machine was configured, and
+// FastTapeActive is only true while a tape is actually playing.
+func (e *Emulator) FastTape() bool { return e.fastTape }
 
 // fastTapeActive reports whether the emulator should currently run unthrottled.
 func (e *Emulator) fastTapeActive() bool {
@@ -258,6 +364,42 @@ func (e *Emulator) Reset() {
 		e.upd765.Reset()
 	}
 }
+
+// SetCPUType selects the Z80 variant. UI_DESIGN.md section 6.4 asks for `SetCPUType`
+// followed by `Reset()` when the user changes it, and the reset is the *caller's* step
+// rather than this one's, because the two callers want different things: the settings
+// window resets, since the registers would otherwise hold flags from the other chip, while a
+// startup applies the variant to a machine that has just been restored from a session and
+// must not throw that state away.
+//
+// NMOS is the hardware and the default; CMOS is what the +2A/+3 and later machines carried,
+// and it differs in the undocumented flags, not in the instruction set.
+func (e *Emulator) SetCPUType(isNMOS bool) { e.cpu.SetCPUType(isNMOS) }
+
+// IsNMOS reports which Z80 variant the machine is running. It is read from the CPU rather
+// than remembered, so a session that was resumed with the other variant reports that one.
+func (e *Emulator) IsNMOS() bool { return e.cpu.IsNMOS }
+
+// SetMEMPTRReal selects the MEMPTR behaviour of the repeating block I/O instructions: true is
+// the measured hardware behaviour, false the documented BC-derived one. See KNOWN_BUGS.md -
+// the two are visible only on that repeat path, and the default is the measured one.
+//
+// Unlike the CPU variant this needs no reset: it decides what a block instruction leaves in
+// MEMPTR, and the next one that runs gets the new answer. There is no state that was computed
+// under the old switch.
+func (e *Emulator) SetMEMPTRReal(on bool) { e.cpu.SetMEMPTRReal(on) }
+
+// IsMEMPTRReal reports which MEMPTR behaviour the machine is running. Like IsNMOS it is read
+// from the CPU, because a session carries it too.
+func (e *Emulator) IsMEMPTRReal() bool { return e.cpu.MEMPTRReal() }
+
+// NMI asks the CPU for a non-maskable interrupt, which it takes at the next
+// instruction boundary. It is the button on a real Spectrum, and it exists because
+// a front end and a debugger both want one (UI_DESIGN.md section 6.1).
+//
+// The latch clears when the interrupt is serviced, so one call is one NMI: holding
+// the button down does not storm the CPU.
+func (e *Emulator) NMI() { e.cpu.RequestNMI() }
 
 // step executes one instruction and advances every subsystem by its T-states.
 // Returns the T-states consumed and whether the frame completed.

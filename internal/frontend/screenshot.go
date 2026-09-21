@@ -1,8 +1,4 @@
-// Package ui holds the display interface and the parts of presentation that do
-// not belong to any particular backend. Only the screenshot writer lives here
-// today: it is backend-independent (the framebuffer is the same ARGB8888 slice
-// whichever UI is driving it) and worth testing without a window.
-package ui
+package frontend
 
 import (
 	"fmt"
@@ -26,6 +22,10 @@ const ScreenshotStamp = "20060102-150405.000"
 // it wrote. screen is the UI's ARGB8888 framebuffer (0xAARRGGBB), w by h
 // pixels; no scaling or cropping is done, so what is saved is the whole
 // rendered picture, borders included.
+//
+// It lives here rather than with the display backends because it is
+// backend-independent: the framebuffer is the same ARGB8888 slice whichever
+// window is driving it, and the file is the front end's to name.
 func SavePNG(dir string, screen []uint32, w, h int) (string, error) {
 	if w <= 0 || h <= 0 {
 		return "", fmt.Errorf("screenshot: bad size %dx%d", w, h)

@@ -35,6 +35,9 @@ func (e *Emulator) LoadSNA(s *snap.Snapshot) error {
 	cpu.IM = s.Header.IM
 	cpu.SP = s.Header.SP
 
+	// SNA's byte 19 carries IFF2 in *bit 2*, which is why this masks where the Z80 path
+	// above compares against zero - the two formats spell the same flag differently, and
+	// this one is right. SNA has no IFF1 of its own, so both follow IFF2.
 	cpu.IFF1 = (s.Header.IFF2 & 0x04) != 0
 	cpu.IFF2 = cpu.IFF1
 
@@ -105,9 +108,14 @@ func (e *Emulator) LoadZ80(s *snap.Z80Snapshot) error {
 	cpu.SP = s.Header.SP
 	cpu.PC = s.Header.PC
 
-	cpu.IFF1 = (s.Header.IFF & 0x04) != 0
-	cpu.IFF2 = (s.Header.Flags & 0x04) != 0
-	cpu.IM = s.Header.Flags & 0x03
+	// Byte 27 is IFF1, byte 28 IFF2, byte 29 IM, and the parser decodes them as such
+	// (pkg/snap; `TestZ80InterruptFields` pins it). They used to be read from byte 12,
+	// which is the R-bit-7/compression byte: every loaded .z80 came back with
+	// interrupts disabled and IM 0, and nothing caught it because no test loaded a Z80
+	// file into a machine.
+	cpu.IFF1 = s.Header.IFF != 0
+	cpu.IFF2 = s.Header.IFF2 != 0
+	cpu.IM = s.Header.IM
 
 	mapper := e.Mapper()
 	if s.Is128K {
@@ -131,9 +139,13 @@ func (e *Emulator) LoadZ80(s *snap.Z80Snapshot) error {
 	return nil
 }
 
-// CreateSNA builds a 48K SNA snapshot from the current emulator state. The SNA
+// CreateSNA builds an SNA snapshot from the current emulator state. The SNA
 // format stores the PC on the stack: SP is decremented by 2 and the PC is
 // written at that address, so LoadSNA can pop it back.
+//
+// It used to write a 48K image whatever the machine was, which dropped the paged
+// banks and mislabelled a 128K: the extension below is the fix, and
+// `TestSNARoundTrip128K` is what keeps it.
 func (e *Emulator) CreateSNA() (*snap.Snapshot, error) {
 	cpu := e.CPU()
 	mapper := e.Mapper()

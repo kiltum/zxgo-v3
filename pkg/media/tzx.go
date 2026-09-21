@@ -84,6 +84,10 @@ func LoadTZX(r io.Reader, filename string) (*Tape, error) {
 			blockData := data[pos : pos+int(dataLen)]
 			pos += int(dataLen)
 
+			// Where this block begins in the pulse stream, captured before its
+			// pulses are generated.
+			blockStart := len(pulses)
+
 			// Generate standard ZX Spectrum tape pulses
 			pulses = appendStandardSpeedPulses(pulses, blockData, pauseMs)
 
@@ -91,13 +95,14 @@ func LoadTZX(r io.Reader, filename string) (*Tape, error) {
 			if len(blockData) > 0 {
 				flag := blockData[0]
 				blockType := uint8(0)
-				if flag == 0x00 && len(blockData) > 17 {
-					blockType = blockData[17]
+				if flag == 0x00 && len(blockData) >= 2 {
+					blockType = blockData[1]
 				}
 				blocks = append(blocks, Block{
-					Data:      append([]byte(nil), blockData...),
-					Flag:      flag,
-					BlockType: blockType,
+					Data:       append([]byte(nil), blockData...),
+					Flag:       flag,
+					BlockType:  blockType,
+					BlockPulse: blockStart,
 				})
 			}
 			blockNumber++
@@ -142,6 +147,9 @@ func LoadTZX(r io.Reader, filename string) (*Tape, error) {
 			blockData := data[pos : pos+dataLen]
 			pos += dataLen
 
+			// Where this block begins in the pulse stream, captured before its pulses.
+			blockStart := len(pulses)
+
 			// Generate pulses with custom timing
 			pulses = appendTurboSpeedPulses(pulses, blockData, pilotToneLen, sync1PulseLen, sync2PulseLen,
 				pilotPulseLen, sync1PulseLen, sync2PulseLen, bit0PulseLen, bit1PulseLen)
@@ -154,13 +162,14 @@ func LoadTZX(r io.Reader, filename string) (*Tape, error) {
 			if len(blockData) > 0 {
 				flag := blockData[0]
 				blockType := uint8(0)
-				if flag == 0x00 && len(blockData) > 17 {
-					blockType = blockData[17]
+				if flag == 0x00 && len(blockData) >= 2 {
+					blockType = blockData[1]
 				}
 				blocks = append(blocks, Block{
-					Data:      append([]byte(nil), blockData...),
-					Flag:      flag,
-					BlockType: blockType,
+					Data:       append([]byte(nil), blockData...),
+					Flag:       flag,
+					BlockType:  blockType,
+					BlockPulse: blockStart,
 				})
 			}
 			blockNumber++

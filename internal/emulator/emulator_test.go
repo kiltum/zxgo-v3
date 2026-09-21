@@ -109,6 +109,42 @@ func TestResetReanchorsAudioGrid(t *testing.T) {
 	}
 }
 
+// SetCPUType selects the variant on the chip in the machine and does nothing else. That is
+// what the settings window's Z80 row needs: it applies live and resets the machine itself
+// (UI_DESIGN.md section 6.4), so a reset hidden in here would be a second one - and a
+// startup applying the variant to a machine it has just restored from a session would lose
+// that session entirely.
+func TestSetCPUTypeDoesNotReset(t *testing.T) {
+	// The machine is built from the embedded ROM (see newModel) rather than from roms/48.rom:
+	// this test has nothing to do with which ROM is on disk, and a test that skips when the
+	// file is missing is a test that never runs.
+	e := newModel(t, "48k")
+	for i := 0; i < 20; i++ {
+		e.RunFrame()
+	}
+	if !e.IsNMOS() {
+		t.Fatal("test precondition: the machine should start on the default NMOS")
+	}
+	ticks, frames := e.TotalTicks(), e.FrameCount()
+
+	e.SetCPUType(false)
+
+	if e.IsNMOS() {
+		t.Error("the CPU is still NMOS after CMOS was selected")
+	}
+	if e.TotalTicks() != ticks || e.FrameCount() != frames {
+		t.Errorf("the machine moved: %d ticks, %d frames; want %d and %d",
+			e.TotalTicks(), e.FrameCount(), ticks, frames)
+	}
+
+	// And it goes back: the setting is not a one-way switch, since the settings window
+	// offers both variants as its own buttons.
+	e.SetCPUType(true)
+	if !e.IsNMOS() {
+		t.Error("the CPU did not go back to NMOS")
+	}
+}
+
 // RunFrame and RunSlice must agree: same emulation, different chunking (AUDIT T7).
 func TestRunSliceMatchesRunFrameGrid(t *testing.T) {
 	e := newTestEmu(t)

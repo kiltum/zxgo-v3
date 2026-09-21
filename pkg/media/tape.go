@@ -15,9 +15,22 @@ type Pulse struct {
 
 // Block represents a decoded tape block with its data and timing.
 type Block struct {
-	Data      []byte // Raw block data
-	Flag      uint8  // 0x00=header, 0xFF=data
-	BlockType uint8  // Header type (0-7) if flag==0x00
+	Data []byte // Raw block data
+	Flag uint8  // 0x00=header, 0xFF=data
+	// BlockType is a header's type when Flag is 0x00: 0 program, 1 number array,
+	// 2 character array, 3 bytes. It is the byte *after* the flag - a ZX header is
+	// flag, type, then the ten-byte name - which is what the ROM's loader reads and
+	// what Fuse reads (ref/fuse-1.9.0/tape.c). This used to be read from offset 17,
+	// which is the high byte of the header's second parameter.
+	BlockType uint8
+	// BlockPulse is the pulse index this block starts at in Tape.Pulses, which is
+	// what lets a front end say "block 3 of 12" and mean the block the head is
+	// actually in rather than a fraction of the whole tape (UI_DESIGN.md section
+	// 6.3). The loaders set it where each block begins, which is *before* the
+	// pulses for it are generated: the TZX path in particular appends pulses and
+	// then records the block, so capturing the length afterwards would point at the
+	// next block.
+	BlockPulse int
 }
 
 // Tape represents a complete tape (TAP/TZX file) as a sequence of pulses.
@@ -204,16 +217,20 @@ func LoadTAP(r io.Reader, filename string) (*Tape, error) {
 		}
 
 		blockType := uint8(0)
-		// In a header block (flag==0x00), block type is at byte 17:
-		// flag(1) + filename(10) + len_low(1) + len_high(1) + addr_low(1) + addr_high(1) + param2_low(1) + param2_high(1) + blocktype(1)
-		if flag == 0x00 && len(blockData) > 17 {
-			blockType = blockData[17]
+		// A header block's type is the byte after the flag: flag(1) + type(1) +
+		// name(10) + length(2) + parameter1(2) + parameter2(2), which is 18 bytes and
+		// a nineteenth for the checksum or an array's variable name.
+		if flag == 0x00 && len(blockData) >= 2 {
+			blockType = blockData[1]
 		}
 
+		blockStart := len(pulses)
+
 		blocks = append(blocks, Block{
-			Data:      append([]byte(nil), blockData...),
-			Flag:      flag,
-			BlockType: blockType,
+			Data:       append([]byte(nil), blockData...),
+			Flag:       flag,
+			BlockType:  blockType,
+			BlockPulse: blockStart,
 		})
 
 		// Generate pulse stream for this block

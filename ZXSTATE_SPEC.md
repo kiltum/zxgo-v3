@@ -255,9 +255,10 @@ file this format does not describe.
 | Max chunk payload | 33554432 bytes (32 MiB) | chunk `length` |
 | Max body, decompressed | 67108864 bytes (64 MiB) | the whole body |
 
-The largest legitimate chunk today is a 1024K machine's RAM (1 MiB) or a disk
-image (~800 KiB); the ceilings are an order of magnitude above that so a reader
-can bound its allocations without being tight for a future model.
+The largest legitimate chunk today is a Pentagon 512's RAM (512 KiB, the
+biggest machine in the registry) or a disk image (~800 KiB); the ceilings are an
+order of magnitude above that so a reader can bound its allocations without
+being tight for a future model.
 
 ---
 
@@ -316,8 +317,9 @@ reference implementation takes the simpler route and documents the bound.
 
 ```
 1. Read the 20-byte fixed header. If fewer than 20 bytes are available and the
-   bytes present are a prefix of the magic, the file is truncated; otherwise it
-   is not this format.
+   bytes present contain the whole magic, the file is truncated; otherwise it is
+   not this format. (A file that stops inside the magic itself reads as "not this
+   format", which is the more useful answer for a file that was never one.)
 2. Check magic, container version, header flags.
 3. Read `model` and `build` as length-prefixed strings (bounded).
 4. Compare `model` with the running machine's key. Refuse on a mismatch.

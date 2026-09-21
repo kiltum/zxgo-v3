@@ -8,9 +8,14 @@ import (
 func TestLoadTAP_HeaderOnly(t *testing.T) {
 	// Single header block (standard 19-byte ZX Spectrum header)
 	// Total 21 bytes: [length_lo length_hi] + [19-byte header]
+	//
+	// The header's own layout is the TAP standard's, and the order matters: flag, then the
+	// type, then the name. The type is not the last byte - that is the checksum - and a
+	// fixture with it there passes its own length check and reports 'P' as the type.
 	data := []byte{
 		0x13, 0x00, // Length: 19 bytes (little-endian)
 		0x00,                                             // Flag: 0x00 = header
+		0x10,                                             // Block type: 0x10 = BASIC program
 		'P', 'R', 'O', 'G', 'R', 'A', 'M', ' ', ' ', ' ', // Filename (10 bytes)
 		0x00, // Length low byte
 		0x00, // Length high byte
@@ -18,8 +23,7 @@ func TestLoadTAP_HeaderOnly(t *testing.T) {
 		0x80, // Start address high
 		0x00, // Param 2 low
 		0x80, // Param 2 high
-		0x10, // Block type: 0x10 = BASIC program (byte 17 in blockData, byte 19 overall)
-		0x00, // Padding byte to reach 19 total (ZX Spectrum headers have a checksum byte that we're setting to 0)
+		0x00, // Checksum (set to 0 for the test)
 	}
 
 	tape, err := LoadTAP(bytes.NewReader(data), "test.tap")

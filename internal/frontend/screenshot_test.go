@@ -1,4 +1,4 @@
-package ui
+package frontend
 
 import (
 	"image/color"
@@ -82,4 +82,14 @@ func TestSavePNGRejectsBadSize(t *testing.T) {
 	if _, err := SavePNG(dir, nil, 0, 0); err == nil {
 		t.Error("want an error for a zero size")
 	}
+}
+
+// screenshots lists the PNGs in dir, which is what the command tests assert on.
+func screenshots(t *testing.T, dir string) []string {
+	t.Helper()
+	names, err := filepath.Glob(filepath.Join(dir, "*.png"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return names
 }

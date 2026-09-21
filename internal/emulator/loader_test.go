@@ -116,6 +116,43 @@ func TestLoadSnapshotFileRealZ80Zip(t *testing.T) {
 	}
 }
 
+// TestLoadSnapshotFileZ80InterruptState loads a .z80 whose interrupt state is
+// deliberately unambiguous and checks what the machine ends up with.
+//
+// The parser was pinned years before the apply path was: `pkg/snap`'s
+// `TestZ80InterruptFields` checks that IFF1/IFF2/IM come from bytes 27/28/29, while
+// the emulator read them from byte 12 (the R/compression byte), so every loaded
+// .z80 ran with interrupts disabled and IM 0 - and no test noticed, because no test
+// loaded a Z80 file into a machine. Byte 12 below holds a value that would look
+// plausible if it were misread (0x23: bits 0-1 = 3, bit 2 = 0), so a regression
+// cannot pass by accident.
+func TestLoadSnapshotFileZ80InterruptState(t *testing.T) {
+	data := make([]byte, 30+49152)
+	data[12] = 0x23 // R bit 7 clear, not compressed, and the byte that must NOT be read
+	data[27] = 0x01 // IFF1: nonzero means EI
+	data[28] = 0x01 // IFF2: the same
+	data[29] = 0x02 // IM 2
+
+	path := filepath.Join(t.TempDir(), "int.z80")
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	e := New(model.Spectrum48K, &sound.NullOutput{})
+	if _, err := e.LoadSnapshotFile(path); err != nil {
+		t.Fatalf("LoadSnapshotFile: %v", err)
+	}
+
+	cpu := e.CPU()
+	if !cpu.IFF1 || !cpu.IFF2 {
+		t.Errorf("interrupts = IFF1 %v, IFF2 %v; want both enabled (byte 27/28, not 12)",
+			cpu.IFF1, cpu.IFF2)
+	}
+	if cpu.IM != 2 {
+		t.Errorf("IM = %d, want 2 (byte 29, not the low bits of byte 12)", cpu.IM)
+	}
+}
+
 // TestLoadSnapshotFileZ80RoundTrip packs a 128K Z80 snapshot and checks the
 // machine that comes back is the one that was saved, paging included.
 func TestLoadSnapshotFileZ80RoundTrip(t *testing.T) {
