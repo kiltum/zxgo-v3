@@ -184,6 +184,26 @@ func registerEmulatorTools(s *server.MCPServer, h *workerHandle, log *slog.Logge
 		return forward(h, "release_key", map[string]any{"name": name, "row": row, "col": col}), nil
 	})
 
+	s.AddTool(mcp.NewTool("set_joystick",
+		mcp.WithDescription("Set the Kempston joystick. Named flags, each defaulting to released; the whole state is written at once, as the port is."),
+		mcp.WithString("name", mcp.Description("Machine name."), mcp.Required()),
+		mcp.WithBoolean("right", mcp.Description("Stick right (Kempston bit 0).")),
+		mcp.WithBoolean("left", mcp.Description("Stick left (bit 1).")),
+		mcp.WithBoolean("down", mcp.Description("Stick down (bit 2).")),
+		mcp.WithBoolean("up", mcp.Description("Stick up (bit 3).")),
+		mcp.WithBoolean("fire", mcp.Description("Fire button (bit 4).")),
+	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		name, _ := req.RequireString("name")
+		args := req.GetArguments()
+		params := map[string]any{"name": name}
+		for _, flag := range []string{"right", "left", "down", "up", "fire"} {
+			if v, ok := args[flag].(bool); ok {
+				params[flag] = v
+			}
+		}
+		return forward(h, "set_joystick", params), nil
+	})
+
 	s.AddTool(mcp.NewTool("read_screen",
 		mcp.WithDescription("Read the screen as an ASCII brightness map."),
 		mcp.WithString("name", mcp.Description("Machine name."), mcp.Required()),

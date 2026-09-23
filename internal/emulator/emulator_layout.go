@@ -122,6 +122,11 @@ func NewWithLayout(cfg model.Config, layout *model.ROMLayout, romsDir string, au
 	betaDisk := media.NewBetaDiskController()
 	betaDisk.SetClockHz(cpuHz)
 	betaDisk.SetNoTiming(cfg.NoFDCTiming)
+	// The same arbitration object the Kempston has: the two share port 0x1F, and
+	// which of them answers is decided by whether TR-DOS is paged in. Without this
+	// the controller's status register is ANDed into every joystick read, and the
+	// joystick reads as nothing at all.
+	betaDisk.SetTRDosState(trdos)
 	portBus.Register(betaDisk)
 
 	// The +2A/+3 has its floppy controller built in, so it exists whether or not

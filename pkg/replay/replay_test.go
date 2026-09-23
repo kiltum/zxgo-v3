@@ -20,6 +20,7 @@ func sample() *File {
 			{Tick: 300, Key: &KeyEvent{Row: 6, Col: 0, Down: false}},
 			{Tick: 100, Key: &KeyEvent{Row: 6, Col: 0, Down: true}},
 			{Tick: 200, Tape: TapePlay},
+			{Tick: 250, Joy: &JoyEvent{Right: true, Fire: true}},
 		},
 	}
 }
@@ -53,7 +54,7 @@ func TestRoundTrip(t *testing.T) {
 		t.Fatalf("got %d events, want %d", len(loaded.Events), len(original.Events))
 	}
 	// Save sorts, so the reloaded order is tick order rather than input order.
-	for i, want := range []int64{100, 200, 300} {
+	for i, want := range []int64{100, 200, 250, 300} {
 		if got := loaded.Events[i].Tick; got != want {
 			t.Errorf("event %d tick = %d, want %d", i, got, want)
 		}
@@ -64,8 +65,13 @@ func TestRoundTrip(t *testing.T) {
 	if got := loaded.Events[1].Tape; got != TapePlay {
 		t.Errorf("event 1 tape = %q, want %q", got, TapePlay)
 	}
-	if got := loaded.Events[2].Key; got == nil || got.Down {
-		t.Errorf("event 2 key = %+v, want the (6,0) release", got)
+	// The joystick survives the round trip as a whole state, and the directions it
+	// does not name come back false rather than absent-and-unknown.
+	if j := loaded.Events[2].Joy; j == nil || !j.Right || !j.Fire || j.Left || j.Up || j.Down {
+		t.Errorf("event 2 joystick = %+v, want right and fire only", j)
+	}
+	if got := loaded.Events[3].Key; got == nil || got.Down {
+		t.Errorf("event 3 key = %+v, want the (6,0) release", got)
 	}
 }
 
@@ -139,7 +145,9 @@ func TestLoadRejects(t *testing.T) {
 		{"col out of range", `{"format":"zxgo-replay","version":1,"model":"48k","events":[{"tick":1,"key":{"row":0,"col":5,"down":true}}]}`, "outside the 8x5 matrix"},
 		{"unknown tape action", `{"format":"zxgo-replay","version":1,"model":"48k","events":[{"tick":1,"tape":"rewind"}]}`, "unknown tape action"},
 		{"both fields", `{"format":"zxgo-replay","version":1,"model":"48k","events":[{"tick":1,"key":{"row":0,"col":0,"down":true},"tape":"play"}]}`, "both a key and a tape action"},
-		{"neither field", `{"format":"zxgo-replay","version":1,"model":"48k","events":[{"tick":1}]}`, "neither a key nor a tape action"},
+		{"key and joystick", `{"format":"zxgo-replay","version":1,"model":"48k","events":[{"tick":1,"key":{"row":0,"col":0,"down":true},"joy":{"fire":true}}]}`, "both a key and a joystick state"},
+		{"joystick and tape", `{"format":"zxgo-replay","version":1,"model":"48k","events":[{"tick":1,"joy":{"fire":true},"tape":"play"}]}`, "both a joystick state and a tape action"},
+		{"neither field", `{"format":"zxgo-replay","version":1,"model":"48k","events":[{"tick":1}]}`, "neither a key, a joystick state nor a tape action"},
 	}
 
 	for _, tc := range cases {
@@ -392,9 +400,9 @@ func TestPlayerRescaleDoesNotMutate(t *testing.T) {
 
 func TestFileCounts(t *testing.T) {
 	f := sample()
-	keys, tape := f.Count()
-	if keys != 2 || tape != 1 {
-		t.Errorf("Count = %d keys, %d tape, want 2 and 1", keys, tape)
+	keys, tape, joy := f.Count()
+	if keys != 2 || tape != 1 || joy != 1 {
+		t.Errorf("Count = %d keys, %d tape, %d joystick, want 2, 1 and 1", keys, tape, joy)
 	}
 	if got := f.Duration(); got != 300 {
 		t.Errorf("Duration = %d, want 300", got)

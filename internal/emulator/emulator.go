@@ -322,6 +322,25 @@ func (e *Emulator) ReleaseKey(row, col int) {
 	e.ula.SetKeyUp(row, col)
 }
 
+// SetJoystick writes the Kempston joystick's five directions.
+//
+// It is the joystick's own input method, alongside PressKey and ReleaseKey, and
+// for the same reason: the machine is driven from more than one place (the
+// desktop backend's gamepad, the MCP worker's set_joystick, a replay), and
+// recording hangs off the method rather than off whichever of them called it, so
+// a session played with a pad is a session that replays.
+//
+// The whole state is written at once because that is what the port is: five bits
+// of one byte, with no history behind them.
+func (e *Emulator) SetJoystick(right, left, down, up, fire bool) {
+	if e.recorder != nil {
+		e.recorder.Joy(e.totalTicks, replay.JoyEvent{
+			Right: right, Left: left, Down: down, Up: up, Fire: fire,
+		})
+	}
+	e.kempston.SetState(right, left, down, up, fire)
+}
+
 // LoadROM loads a ROM bank.
 func (e *Emulator) LoadROM(bank int, data []byte) error {
 	e.mapper.SetROMWritable(true)

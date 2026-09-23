@@ -90,11 +90,12 @@ type Media struct {
 	Snapshot string `json:"snapshot,omitempty"`
 }
 
-// Event is one thing that happened, at one tick. Exactly one of Key and Tape is
-// set.
+// Event is one thing that happened, at one tick. Exactly one of Key, Joy and
+// Tape is set.
 type Event struct {
 	Tick int64     `json:"tick"`
 	Key  *KeyEvent `json:"key,omitempty"`
+	Joy  *JoyEvent `json:"joy,omitempty"`
 	Tape string    `json:"tape,omitempty"`
 }
 
@@ -106,6 +107,23 @@ type KeyEvent struct {
 	Row  int  `json:"row"`
 	Col  int  `json:"col"`
 	Down bool `json:"down"`
+}
+
+// JoyEvent is the Kempston joystick as it stood after a change: the five
+// directions the port has bits for, not the host control that moved. A pad's
+// stick, its D-pad and a keyboard cursor key all arrive here as the same
+// direction, which is why the recorded file does not say which was used.
+//
+// It is a whole state rather than a change to one direction because a Kempston
+// port is read as a byte: replaying an event means writing the port, and there
+// is nothing to be gained by replaying five single-bit deltas whose intermediate
+// combinations no game ever sees.
+type JoyEvent struct {
+	Right bool `json:"right,omitempty"`
+	Left  bool `json:"left,omitempty"`
+	Down  bool `json:"down,omitempty"`
+	Up    bool `json:"up,omitempty"`
+	Fire  bool `json:"fire,omitempty"`
 }
 
 // Load reads a .replay document, rejecting anything that is not one or comes
@@ -180,16 +198,20 @@ func (f *File) Duration() int64 {
 	return last
 }
 
-// Count returns how many key presses and tape actions the file holds.
-func (f *File) Count() (keys, tape int) {
+// Count returns how many key presses, tape actions and joystick changes the file
+// holds.
+func (f *File) Count() (keys, tape, joy int) {
 	for _, ev := range f.Events {
-		if ev.Key != nil {
+		switch {
+		case ev.Key != nil:
 			keys++
-		} else {
+		case ev.Joy != nil:
+			joy++
+		default:
 			tape++
 		}
 	}
-	return keys, tape
+	return keys, tape, joy
 }
 
 // validate checks one event is well-formed. A damaged event is refused rather
@@ -199,12 +221,20 @@ func (e *Event) validate() error {
 		return fmt.Errorf("negative tick %d", e.Tick)
 	}
 	switch {
+	case e.Key != nil && e.Joy != nil:
+		return fmt.Errorf("carries both a key and a joystick state")
 	case e.Key != nil && e.Tape != "":
 		return fmt.Errorf("carries both a key and a tape action")
+	case e.Joy != nil && e.Tape != "":
+		return fmt.Errorf("carries both a joystick state and a tape action")
 	case e.Key != nil:
 		if e.Key.Row < 0 || e.Key.Row > 7 || e.Key.Col < 0 || e.Key.Col > 4 {
 			return fmt.Errorf("key (%d,%d) is outside the 8x5 matrix", e.Key.Row, e.Key.Col)
 		}
+		return nil
+	case e.Joy != nil:
+		// Nothing to check: five flags are every value a JoyEvent can hold, and
+		// all thirty-two of them are states the port can be written with.
 		return nil
 	case e.Tape != "":
 		if e.Tape != TapePlay && e.Tape != TapePause {
@@ -212,7 +242,7 @@ func (e *Event) validate() error {
 		}
 		return nil
 	default:
-		return fmt.Errorf("carries neither a key nor a tape action")
+		return fmt.Errorf("carries neither a key, a joystick state nor a tape action")
 	}
 }
 
@@ -235,6 +265,16 @@ func (r *Recorder) Key(tick int64, row, col int, down bool) {
 		return
 	}
 	r.events = append(r.events, Event{Tick: tick, Key: &KeyEvent{Row: row, Col: col, Down: down}})
+}
+
+// Joy records a joystick state, which is the whole of it rather than one
+// direction: see JoyEvent.
+func (r *Recorder) Joy(tick int64, j JoyEvent) {
+	if !r.enabled {
+		return
+	}
+	ev := j
+	r.events = append(r.events, Event{Tick: tick, Joy: &ev})
 }
 
 // Tape records a playback action.

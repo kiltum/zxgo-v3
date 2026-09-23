@@ -34,6 +34,10 @@ const (
 	EvWindowMoved
 	EvWindowResized
 	EvWindowClosed
+	// EvJoy is a host joystick's state, reported only when it changes: a pad
+	// resting at centre produces no events at all, and every event is one write to
+	// the machine's Kempston port.
+	EvJoy
 )
 
 func (k EventKind) String() string {
@@ -56,6 +60,8 @@ func (k EventKind) String() string {
 		return "window-resized"
 	case EvWindowClosed:
 		return "window-closed"
+	case EvJoy:
+		return "joy"
 	}
 	return "unknown"
 }
@@ -96,4 +102,9 @@ type Event struct {
 
 	// Rect is the window's new geometry, for the window events.
 	Rect Rect
+
+	// Joy is EvJoy: the whole of the joystick as it now stands, not a change to
+	// one direction. Only one of these is set, and it is only sent when it differs
+	// from the last one.
+	Joy JoyState
 }

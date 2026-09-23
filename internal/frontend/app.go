@@ -44,6 +44,11 @@ type App struct {
 	capturing  bool // a widget in the focused window wants the keyboard (D5 rule 3)
 	dialogOpen bool // a native file dialog is pending (D5 rule 10)
 
+	// joy is the joystick state the front end last wrote to the machine, which is
+	// what lets a pad at rest cost nothing: the backend reports a change, and this
+	// is the record of whether the machine has already been told.
+	joy JoyState
+
 	main        WindowState
 	tools       []WindowState
 	menuVisible bool
@@ -344,6 +349,32 @@ func (a *App) ReleaseHeld() {
 		a.Machine.ReleaseKey(cell.Row, cell.Col)
 	}
 	a.held = nil
+	// The joystick goes the same way as the keys, and for the same reason: a gamepad
+	// held while focus leaves reports no release of its own, and a direction left
+	// down is a stick the machine would keep at that direction for ever.
+	a.applyJoystick(JoyState{})
+}
+
+// SetJoystick applies a host joystick state to the machine's Kempston port.
+//
+// The caller has already decided that the state belongs to the machine: which
+// window a joystick was read in is the event's business, exactly as it is for a
+// key, and Apply is where that rule is. What belongs here is the second rule -
+// a state that is already on the machine is not written again, since the backend
+// reports the pad on every change and a held direction would otherwise fill a
+// replay with the same five booleans.
+func (a *App) SetJoystick(j JoyState) { a.applyJoystick(j) }
+
+// applyJoystick writes the joystick to the machine unless it is already there, and
+// is the one path to the port - so a caller that must force a write, like the
+// reset that clears the port behind the front end's back, calls it with the state
+// it knows the machine should have.
+func (a *App) applyJoystick(j JoyState) {
+	if j == a.joy {
+		return
+	}
+	a.joy = j
+	a.Machine.SetJoystick(j)
 }
 
 // SetCapturing records whether a widget in the focused window wants the keyboard
@@ -425,6 +456,12 @@ func (a *App) Dispatch(act Action) error {
 	case ActReset:
 		a.Machine.Reset()
 		a.fps.reset()
+		// The reset clears the Kempston port, which the front end cannot see: a stick
+		// held across it would leave the machine standing still until the user let go
+		// and pushed again, because the front end would have no change to report. The
+		// state is written back so that what the machine has matches what the user is
+		// holding.
+		a.Machine.SetJoystick(a.joy)
 		return nil
 	case ActNMI:
 		// The machine takes it at its next instruction boundary, so a paused

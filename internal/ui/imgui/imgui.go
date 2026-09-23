@@ -85,6 +85,9 @@ static inline bool evKeyRepeat(SDL_Event* e)       { return e->key.repeat; }
 static inline Uint16 evMods(SDL_Event* e)          { return e->key.mod; }
 static inline int evMouseX(SDL_Event* e)           { return (int)e->motion.x; }
 static inline int evMouseY(SDL_Event* e)           { return (int)e->motion.y; }
+// The gamepad device events (added, removed) carry SDL's instance id in "which",
+// which is what tells one pad from another.
+static inline SDL_JoystickID evWhich(SDL_Event* e) { return e->gdevice.which; }
 
 // Tell SDL we handle main ourselves (Go's main, not SDL_main).
 static inline void sdlReady(void) { SDL_SetMainReady(); }
@@ -149,6 +152,14 @@ type Backend struct {
 	// keyCells is what the on-screen keyboard reported as held last frame, so the two
 	// edges of a click can be told apart.
 	keyCells map[frontend.Cell]bool
+
+	// pad is the open SDL gamepad driving the Kempston joystick, or nil. joy is the
+	// state last reported to the front end, and joyKnown whether one has been reported
+	// at all - a report is due whenever the pad's state differs from joy, or when
+	// nothing has been said yet (see reportFocus and closeGamepad).
+	pad      *gamepad
+	joy      frontend.JoyState
+	joyKnown bool
 }
 
 // New returns a backend that has not opened anything yet: Init does that, so a
@@ -168,9 +179,11 @@ func New() *Backend {
 // what the SDL backend has always used.
 func (b *Backend) Init() error {
 	C.sdlReady()
-	// Video only: the audio device belongs to the emulator, which opens its own
-	// (pkg/sound/sdl3). The window backend has no business holding a second one.
-	if !C.SDL_Init(C.SDL_INIT_VIDEO) {
+	// Video and gamepad: the audio device belongs to the emulator, which opens its
+	// own (pkg/sound/sdl3). The window backend has no business holding a second one.
+	// The gamepad subsystem is initialised here because the window loop is what polls
+	// for one; it costs nothing when no pad is connected.
+	if !C.SDL_Init(C.SDL_INIT_VIDEO | C.SDL_INIT_GAMEPAD) {
 		return fmt.Errorf("imgui: SDL_Init: %s", C.GoString(C.SDL_GetError()))
 	}
 
@@ -183,6 +196,12 @@ func (b *Backend) Init() error {
 	// The window is created hidden and shown by the first SyncWindows, so it
 	// appears in the place the saved layout puts it rather than jumping there.
 	b.main.shown = false
+
+	// A gamepad is not required, so a machine with none is a machine that runs
+	// exactly as it did. The subsystem's failure is not the emulator's: SDL_Init
+	// above already asked for SDL_INIT_GAMEPAD, and this only picks up what is
+	// plugged in.
+	b.initGamepad()
 	return nil
 }
 
@@ -228,6 +247,10 @@ func (b *Backend) Poll(events *[]frontend.Event) bool {
 		return false
 	}
 	b.reportFocus(events)
+	// After focus, so that a joystick report produced by the focus itself (see
+	// reportFocus) is ordered after the focus change it belongs to: the front end
+	// gates the joystick on which window has focus, and would drop it otherwise.
+	b.pollGamepad(events)
 	return true
 }
 
@@ -266,6 +289,19 @@ func (b *Backend) handleSDL(ev *C.SDL_Event, events *[]frontend.Event) {
 			Captured:   b.capturing(),
 			DialogOpen: b.dialogPending(),
 		})
+
+	case C.SDL_EVENT_GAMEPAD_ADDED:
+		// A pad plugged in while the emulator runs drives the joystick from the next
+		// read, exactly as one that was there at startup.
+		b.openGamepad(uint32(C.evWhich(ev)))
+
+	case C.SDL_EVENT_GAMEPAD_REMOVED:
+		// Only the pad that is driving the machine matters; a second one coming and
+		// going is not the emulator's business.
+		if b.pad != nil && uint32(C.evWhich(ev)) == b.pad.id {
+			b.closeGamepad()
+			b.pollGamepad(events)
+		}
 
 	case C.SDL_EVENT_WINDOW_CLOSE_REQUESTED:
 		*events = append(*events, frontend.Event{
@@ -319,6 +355,14 @@ func (b *Backend) reportFocus(events *[]frontend.Event) {
 		return
 	}
 	b.focused = focused
+	// The joystick is reported again when the main window takes focus back, even
+	// though nothing about the pad changed. The front end releases whatever it is
+	// holding when focus leaves (D5 rule 4), so a direction held across the switch
+	// and still held on the way back would otherwise never be re-sent, and the
+	// machine would stand still until the user let go and pushed again.
+	if focused == frontend.ToolMain {
+		b.joyKnown = false
+	}
 	*events = append(*events, frontend.Event{Kind: frontend.EvFocusChange, Tool: focused})
 }
 
@@ -1138,6 +1182,7 @@ func formatFPS(fps float64) string {
 
 // Destroy closes every window and shuts SDL down.
 func (b *Backend) Destroy() {
+	b.closeGamepad()
 	for _, v := range b.views() {
 		C.zx_view_free(v.ptr)
 	}

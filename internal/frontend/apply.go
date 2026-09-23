@@ -36,6 +36,22 @@ func (a *App) Apply(events []Event) {
 			// neither releases the other (D5 rule 4).
 			a.MatrixCell(ev.Cell.Row, ev.Cell.Col, ev.Down)
 
+		case EvJoy:
+			// A host joystick. It is not a matrix key and shares nothing with one: a
+			// Kempston joystick is a port the machine reads, so it goes to the machine
+			// through its own method rather than through the matrix at all.
+			//
+			// Rule 1 is applied here for the same reason it is applied to a key in
+			// HandleKey, and from the event rather than from App's own focus: the pad
+			// drives the machine while the main window has focus, so a gamepad held in
+			// the settings window is not also steering the game behind it. What was
+			// held is released on the way out by ReleaseHeld.
+			j := ev.Joy
+			if ev.Tool != ToolMain {
+				j = JoyState{}
+			}
+			a.SetJoystick(j)
+
 		case EvAction:
 			// The menubar and a tool's buttons ask for an action by name; what it
 			// does is Dispatch's business, exactly as for a shortcut.

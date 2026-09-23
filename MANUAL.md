@@ -59,9 +59,12 @@ go build -o zxgo ./cmd/zxgo
 `-model` takes `48k`, `128k`, `2a3`, `pentagon` or `pentagon512`. With no `-model`
 the emulator starts the machine that was used last.
 
-`./build.sh` builds release binaries for macOS, Linux and Windows with SDL3 linked
-in from `static/`, which is what the packaged releases are made with; a plain
-`go build` needs SDL3 installed on the machine you run it on.
+A plain `go build` links SDL3 dynamically, so the binary needs SDL3 installed on the
+machine that runs it (`brew install sdl3` on macOS) - and that is how the released
+macOS package is built. That package is a disk image: open it and copy `zxgo` where
+you want it, e.g. `/usr/local/bin`. `./build.sh` is the self-contained alternative: it builds all
+three platforms with SDL3 linked in from `static/`, so the result runs with nothing
+installed.
 
 ### The switches
 

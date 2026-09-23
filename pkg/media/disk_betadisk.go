@@ -1,5 +1,7 @@
 package media
 
+import "github.com/kiltum/zxgo-v3/pkg/io_ports"
+
 // WD1793Command represents commands for the WD1793 floppy disk controller
 type WD1793Command byte
 
@@ -108,6 +110,12 @@ type BetaDiskController struct {
 	// noTiming disables the seek/rotational latency so commands complete
 	// instantly. Useful for big (non-copy-protected) images that load slowly.
 	noTiming bool
+
+	// trdos is the shared TR-DOS arbitration state, when the caller wired one in.
+	// The interface decodes its ports only while its ROM is paged in, and port
+	// 0x1F is one of them - where a Kempston joystick also answers. Nil means the
+	// controller was built on its own (the pkg/media tests) and answers always.
+	trdos *io_ports.TRDosState
 }
 
 // Index pulse geometry. A 5.25"/3.5" drive spins at 300 RPM: one revolution

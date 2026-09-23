@@ -103,6 +103,8 @@ func (w *worker) dispatch(req *workerproto.Request) {
 		result, err = w.pressKey(req.Params)
 	case "release_key":
 		result, err = w.releaseKey(req.Params)
+	case "set_joystick":
+		result, err = w.setJoystick(req.Params)
 	case "read_screen":
 		result, err = w.readScreen(req.Params)
 	case "read_screen_text":
@@ -505,6 +507,38 @@ func (w *worker) releaseKey(raw json.RawMessage) (any, error) {
 	}
 	e.ReleaseKey(p.Row, p.Col)
 	return "ok", nil
+}
+
+// setJoystick writes the Kempston joystick. It is the whole state at once, as the
+// port is, and it goes through the emulator's own input method so that a session
+// driven from here records and replays like one driven by a gamepad.
+func (w *worker) setJoystick(raw json.RawMessage) (any, error) {
+	var p struct {
+		Name  string `json:"name"`
+		Right bool   `json:"right"`
+		Left  bool   `json:"left"`
+		Down  bool   `json:"down"`
+		Up    bool   `json:"up"`
+		Fire  bool   `json:"fire"`
+	}
+	if err := decodeParams(raw, &p); err != nil {
+		return nil, err
+	}
+	e, err := w.getMachine(p.Name)
+	if err != nil {
+		return nil, err
+	}
+	e.SetJoystick(p.Right, p.Left, p.Down, p.Up, p.Fire)
+	// The readable state back, so a caller can see what the port now holds without
+	// a second call: the five booleans it just sent, as the byte the machine reads.
+	return map[string]any{
+		"kempston": e.Kempston().Read(0x1F),
+		"right":    p.Right,
+		"left":     p.Left,
+		"down":     p.Down,
+		"up":       p.Up,
+		"fire":     p.Fire,
+	}, nil
 }
 
 func (w *worker) readScreen(raw json.RawMessage) (any, error) {

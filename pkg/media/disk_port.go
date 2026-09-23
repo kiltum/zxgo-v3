@@ -22,7 +22,11 @@ func SetDiskLogger(dlog, ctllog *slog.Logger) {
 	diskCtrlLog = ctllog
 }
 
-// SetTRDosActive records whether the TR-DOS ROM is currently paged in.
+// SetTRDosState wires the shared TR-DOS arbitration state, which decides whether
+// this interface answers its ports at all. The emulator has one of these per
+// machine and gives the same object to the Kempston joystick, which is the other
+// device that decodes 0x1F.
+func (c *BetaDiskController) SetTRDosState(s *io_ports.TRDosState) { c.trdos = s }
 
 // Nil-safe logging helpers for disk operations (used when loggers may be nil during tests)
 func diskLogWarn(msg string, args ...any) {
@@ -66,7 +70,18 @@ func regName(p byte, isWrite bool) string {
 }
 
 // HandlesPort implements io_ports.PortHandler for the Beta Disk controller.
+//
+// The interface decodes its ports only while its ROM is paged in, which is what
+// lets a Kempston joystick share port 0x1F with the WD1793 status register: the
+// port bus ANDs every handler that answers, so the two must not answer at the
+// same time. The Kempston stands down while TR-DOS is active; this stands down
+// while it is not. Fuse models the same thing with beta_active
+// (ref/fuse-1.9.0/peripherals/disk/beta.c: every handler returns 0xff when it is
+// clear).
 func (c *BetaDiskController) HandlesPort(port uint16) bool {
+	if c.trdos != nil && !c.trdos.Active() {
+		return false
+	}
 	p := byte(port)
 	if (p & 0x1F) != 0x1F {
 		return false

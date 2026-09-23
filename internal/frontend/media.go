@@ -44,13 +44,20 @@ type ReplaySummary struct {
 	Path       string
 	KeyEvents  int
 	TapeEvents int
+	JoyEvents  int
 	Duration   time.Duration
 }
 
-// String renders the summary the way the CLI prints it.
+// String renders the summary the way the CLI prints it. The joystick count is
+// named only when there is one, so the sentence a keyboard-only session has
+// always produced is unchanged.
 func (s ReplaySummary) String() string {
-	return fmt.Sprintf("Saved replay: %s (%d keys, %d tape actions, %s)",
-		s.Path, s.KeyEvents, s.TapeEvents, s.Duration)
+	joy := ""
+	if s.JoyEvents > 0 {
+		joy = fmt.Sprintf(", %d joystick moves", s.JoyEvents)
+	}
+	return fmt.Sprintf("Saved replay: %s (%d keys, %d tape actions%s, %s)",
+		s.Path, s.KeyEvents, s.TapeEvents, joy, s.Duration)
 }
 
 // SaveReplay writes the recorded session and reports what it wrote. The machine
@@ -97,7 +104,7 @@ func SaveReplay(m Machine, rec *replay.Recorder, path string,
 		return summary, err
 	}
 
-	summary.KeyEvents, summary.TapeEvents = f.Count()
+	summary.KeyEvents, summary.TapeEvents, summary.JoyEvents = f.Count()
 	summary.Duration = time.Duration(f.Duration() * int64(time.Second) / int64(m.CPUHz()))
 	return summary, nil
 }

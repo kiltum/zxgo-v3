@@ -66,6 +66,11 @@ type Machine interface {
 	// on-screen keyboard draws from: a key can be down because the machine's own code
 	// or a replay put it there, not only because the front end pressed it.
 	MatrixKey(row, col int) bool
+	// SetJoystick writes the machine's Kempston port from a host joystick state. It is
+	// an input method of the machine rather than something the front end reaches into:
+	// the port belongs to the emulator, and a machine whose model has no joystick is
+	// free to ignore the call rather than to make every caller ask first.
+	SetJoystick(j JoyState)
 
 	// Tape transport. D9 again: the recorder hooks the transport methods, not the
 	// Playback object they wrap.
@@ -155,6 +160,14 @@ func (a *Adapter) TapeEnded() bool {
 // MatrixKey reports whether a key of the ZX matrix is held.
 func (a *Adapter) MatrixKey(row, col int) bool {
 	return a.Emulator.ULA().IsKeyDown(row, col)
+}
+
+// SetJoystick writes the Kempston port. The translation is the whole point of the
+// adapter being here: the front end speaks in a named state and the emulator's
+// input API takes the five directions, so that a replay records a struct of
+// fields rather than a byte whose meaning lives in another package.
+func (a *Adapter) SetJoystick(j JoyState) {
+	a.Emulator.SetJoystick(j.Right, j.Left, j.Down, j.Up, j.Fire)
 }
 
 // Screen reports the ULA's framebuffer and size. The ULA owns both, so they

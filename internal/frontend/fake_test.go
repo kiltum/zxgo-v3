@@ -56,6 +56,10 @@ type fakeMachine struct {
 	released []Cell
 	down     map[Cell]bool
 
+	// joy is every joystick state the front end wrote, in order, so a test can ask
+	// both what the machine ended up holding and how many times it was told.
+	joy []JoyState
+
 	screen Screen
 
 	savedTo  string
@@ -118,6 +122,11 @@ func (m *fakeMachine) ReleaseKey(row, col int) {
 	m.released = append(m.released, cell)
 	delete(m.down, cell)
 }
+
+// SetJoystick records every write, including the ones that repeat a state: what
+// the front end's own tests are about is whether it wrote at all, so the fake
+// must not collapse the written states the way the real port would.
+func (m *fakeMachine) SetJoystick(j JoyState) { m.joy = append(m.joy, j) }
 
 func (m *fakeMachine) StartTapePlayback()   { m.tapeStarts++; m.tapePlaying = true }
 func (m *fakeMachine) StopTapePlayback()    { m.tapeStops++; m.tapePlaying = false }

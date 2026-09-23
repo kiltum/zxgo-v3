@@ -489,9 +489,9 @@ func main() {
 	if rp != nil {
 		player := replay.NewPlayer(rp.Events, rp.CPUHz, emu.CPUHz())
 		emu.SetPlayer(player)
-		keys, tape := rp.Count()
-		fmt.Printf("  Replay: %s (%d keys, %d tape actions, recorded on %s)\n",
-			replayPath, keys, tape, rp.Model)
+		keys, tape, joy := rp.Count()
+		fmt.Printf("  Replay: %s (%d keys, %d tape actions, %d joystick moves, recorded on %s)\n",
+			replayPath, keys, tape, joy, rp.Model)
 	}
 
 	runImGui(app, emu, store, prefs)

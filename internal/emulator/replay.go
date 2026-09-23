@@ -53,9 +53,10 @@ func (e *Emulator) recordTape(action string) {
 
 // applyReplayEvent feeds one recorded event into the machine.
 //
-// Keys go through PressKey/ReleaseKey rather than straight to the ULA so that a
-// session played back while a recorder is attached re-records itself; the two
-// are not combined by the CLI, but nothing here depends on that.
+// Keys go through PressKey/ReleaseKey and the joystick through SetJoystick
+// rather than straight to the ULA and the port so that a session played back
+// while a recorder is attached re-records itself; the two are not combined by
+// the CLI, but nothing here depends on that.
 func (e *Emulator) applyReplayEvent(ev replay.Event) {
 	switch {
 	case ev.Key != nil:
@@ -64,6 +65,9 @@ func (e *Emulator) applyReplayEvent(ev replay.Event) {
 		} else {
 			e.ReleaseKey(ev.Key.Row, ev.Key.Col)
 		}
+	case ev.Joy != nil:
+		j := ev.Joy
+		e.SetJoystick(j.Right, j.Left, j.Down, j.Up, j.Fire)
 	case ev.Tape == replay.TapePlay:
 		e.StartTapePlayback()
 	case ev.Tape == replay.TapePause:
