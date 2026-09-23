@@ -23,6 +23,14 @@ name inside - tape before disk before snapshot before ROM - so a release that sh
 packed needs no unpacking first. An archive holding several images (a 48k and a
 128k tape, say) loads the first, and prints which entry it used.
 
+**Input**: the machine's keyboard, a clickable on-screen one, and a gamepad. A
+gamepad the system recognises - one that was connected before the emulator started
+or one plugged in while it runs - is opened automatically and drives the machine's
+Kempston joystick: the stick or the D-pad for the four directions, and the three
+lower face buttons for fire, since a Spectrum joystick has one button and games
+disagree about which one a pad user will reach for. A pad the system cannot
+recognise as a gamepad is ignored, and nothing needs configuring either way.
+
 **Front end**: a desktop window per tool over Dear ImGui - the machine's screen, a
 machine-control window, a disks window with the controller's live state, a tape
 window with the block list, an on-screen ZX keyboard, a settings window, and the
@@ -123,9 +131,9 @@ emulator starts clean.
 
 ## Replays
 
-A `.replay` file is a recording of a session: every key press with the moment it
-happened, plus the machine it happened on. Hand one to someone else and they see
-what you did.
+A `.replay` file is a recording of a session: every key press and every joystick
+move with the moment it happened, plus the machine it happened on. Hand one to
+someone else and they see what you did.
 
 ```bash
 ./zxgo -model 128k -tap game.tzx -save-replay myrun.replay   # record
@@ -134,9 +142,9 @@ what you did.
 
 The file carries the model and the switches, so `-replay` alone is enough: it
 builds the recorded machine, mounts the media the session used, and plays the
-keys at the ticks they were pressed. A switch given on the command line is added
-to the session's, and `-model` overrides the recorded one (the timings are then
-scaled by the clock ratio, and it says so).
+keys and the joystick moves at the ticks they were made at. A switch given on the
+command line is added to the session's, and `-model` overrides the recorded one
+(the timings are then scaled by the clock ratio, and it says so).
 
 Keys are stored as matrix positions and stamped in T-states, not host time, so a
 replay is independent of your keyboard layout and of how fast your machine is -
